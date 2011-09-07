@@ -1,0 +1,13 @@
+{application, zog_site,
+ [
+  {description, "zog_site- make sites in zog for zog with zog"},
+  {vsn, "0.3"},
+  {modules, []},
+  {registered, [zog_site_sup]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, {zog_site_app, []}},
+  {env, []}
+ ]}.

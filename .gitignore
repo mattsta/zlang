@@ -1,0 +1,8 @@
+ebin/
+doc/
+.eunit/
+*.dump
+deps/
+tags
+src/zlang_parser.erl
+src/zlang_lexer.erl
