@@ -2,15 +2,20 @@ Nonterminals
 Module
 Statements Statement
 Vars InlineApplier ApplierType
-Functions Function
+Function
 FunctionBody
 FunctionStatements FunctionStatement
 FunctionName HttpFunctionName
+HttpFunctionBody
+HttpFunctionStatements HttpFunctionStatement
 InternalCall ExternalCall ArgNames
 Names Name
 SpacedNames
-Args Arg
+Args ForUse ForUseArgs
+Equality Delivery
 Comma
+MathApplier MathTerms
+NLEater Number
 StoreDelim Storage TemporalUnit Term
 .
 
@@ -20,73 +25,117 @@ http_method
 slash using
 vars
 math
+use form cookie cookies and fields are come from is
 convert by conversion_op
-combine for names then values with combine
+pair combine for names then values with
 a within in events last the window day hour minute
+foruse vars_src equals output output_type
+float
 atom var integer string set union intersection comparator uterm.
 
 Rootsymbol Module.
 
 Module -> Statements : {module, '$1'}.
+Module -> Statements NLEater : {module, '$1'}.
+
+% Blindly slurp up all consecutive newlines
+NLEater -> 'NL' : [].
+NLEater -> 'NL' NLEater : [].
 
 Statements -> Statement : ['$1'].
 Statements -> Statement Statements : ['$1'] ++ '$2'.
 
 Statement -> Function : {function, '$1'}.
 
-Function -> http_method HttpFunctionName '->' FunctionBody :
-    {http, unwrap('$1'), '$2', '$4'}.
-Function -> HttpFunctionName '->' FunctionBody :
-    {http, '$1', '$3'}.
-Function -> FunctionName Args '->' FunctionBody :
-    {normal, '$1', '$2', '$4'}.
+Function -> http_method HttpFunctionName '->' 'NL' HttpFunctionBody :
+    {http, unwrap('$1'), '$2', '$5'}.
+Function -> HttpFunctionName '->' 'NL' HttpFunctionBody :
+    {http, '$1', '$4'}.
+Function -> FunctionName '->' 'NL' FunctionBody :
+    {local_fun, '$1', '$4'}.
+Function -> FunctionName ForUseArgs '->' 'NL' FunctionBody :
+    {local_fun, '$1', '$2', '$5'}.
 
 HttpFunctionName -> '/' Name : ['$2'].
 HttpFunctionName -> '/' Name HttpFunctionName : ['$2'] ++ '$3'.
 
 FunctionName -> Name : '$1'.
 
-FunctionBody -> FunctionStatements : '$1'.
+HttpFunctionBody -> HttpFunctionStatements NLEater : '$1'.
+FunctionBody -> FunctionStatements NLEater : '$1'.
 
+HttpFunctionStatements -> HttpFunctionStatement : ['$1'].
+HttpFunctionStatements -> HttpFunctionStatement HttpFunctionStatements :
+    ['$1'] ++ '$2'.
 FunctionStatements -> FunctionStatement : ['$1'].
 FunctionStatements -> FunctionStatement FunctionStatements : ['$1'] ++ '$2'.
 
-FunctionStatement -> Vars : '$1'.
-FunctionStatement -> Vars 'NL' : '$1'.
-FunctionStatement -> ExternalCall : '$1'.
+HttpFunctionStatement -> Vars : '$1'.
+HttpFunctionStatement -> Vars 'NL' : '$1'.
+HttpFunctionStatement -> FunctionStatement : '$1'.
+%FunctionStatement -> Delivery : '$1'.
+FunctionStatement -> Delivery 'NL' : '$1'.
+FunctionStatement -> Equality : '$1'.
+FunctionStatement -> Equality 'NL' : '$1'.
+%FunctionStatement -> ExternalCall : '$1'.
 FunctionStatement -> ExternalCall 'NL' : '$1'.
-FunctionStatement -> InternalCall : '$1'.
+%FunctionStatement -> InternalCall : '$1'.
 FunctionStatement -> InternalCall 'NL' : '$1'.
 
+Equality -> Names equals ExternalCall : {equality, '$1', '$3'}.
+Equality -> Names equals InternalCall : {equality, '$1', '$3'}.
+Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
 
-Vars -> vars ArgNames : {vars, '$2'}.
+Delivery -> output output_type ForUse : {output, unwrap('$2'), '$3'}.
+
+Vars -> use vars_src vars ArgNames : {vars, unwrap('$2'), '$4'}.
+Vars -> use vars_src ArgNames : {vars, unwrap('$2'), '$3'}.
 
 InlineApplier -> '(' ApplierType ')' : '$2'.
-InlineApplier -> '(' math SpacedNames ')' : {math, unwrap('$2'), '$3'}.
+InlineApplier -> '(' ApplierType ')' 'NL' : '$2'.
+InlineApplier -> MathApplier : '$1'.
+InlineApplier -> MathApplier 'NL' : '$1'.
 
-% basic inline: (defaults abc, def, hij, ...) 
+% MathApplier is a bit odd because 'math' *includes* the first '('
+% *because* '/' is already a top level token for URL naming.
+MathApplier -> math MathTerms ')' : {math, unwrap('$1'), '$2'}.
+
+MathTerms -> Name : ['$1'].
+MathTerms -> Number : ['$1'].
+MathTerms -> MathApplier : ['$1'].
+MathTerms -> Name MathTerms : ['$1'] ++ '$2'.
+MathTerms -> Number MathTerms : ['$1'] ++ '$2'.
+MathTerms -> MathApplier MathTerms : ['$1'] ++ '$2'.
+
+% basic inline: (defaults abc, def, hij, ...)
 ApplierType -> Name Names : {'$1', '$2'}.
 % converting things
 ApplierType -> convert by conversion_op Name :
     {convert, unwrap('$3'), '$4'}.
 % comprehension applier thing
-ApplierType -> for vars conversion_op Names then combine names with values :
+ApplierType -> foruse vars conversion_op Names then combine names ',' values :
     {using, vars, unwrap('$3'), '$4', combine_name_values}.
-ApplierType -> for Name conversion_op Names then combine names with values :
+ApplierType -> foruse Name conversion_op Names then combine names ',' values :
     {using, '$2', unwrap('$3'), '$4', combine_name_values}.
 
-ExternalCall -> '(' Name ')' Name : {external_call, '$2', '$4'}.
-ExternalCall -> '(' Name ')' Name ArgNames : {external_call, '$2', '$4', '$5'}.
-ExternalCall -> '(' Name ')' Name using ArgNames :
-    {external_call, '$2', '$4', '$6'}.
+ExternalCall -> Name from '(' uterm Name ')' : {external_call, '$5', '$1'}.
+ExternalCall -> Name ForUse from '(' uterm Name ')' :
+    {external_call, '$6', '$1', '$2'}.
+ExternalCall -> Name ForUse from 'NL' '(' uterm Name ')' :
+    {external_call, '$7', '$1', '$2'}.
 
-InternalCall -> Name Names : {call, '$1', '$2'}.
-InternalCall -> Name using Names : {call, '$1', '$3'}.
+InternalCall -> Name ForUse : {call, '$1', '$2'}.
+
+ForUseArgs -> foruse Names : '$2'.
+
+ForUse -> foruse ArgNames : ['$2'].
+ForUse -> foruse ArgNames ForUse : ['$2'] ++ '$3'.
+ForUse -> foruse 'NL' ArgNames : ['$3'].
 
 ArgNames -> Name : ['$1'].
+ArgNames -> InlineApplier : [{applier, '$1'}].
 ArgNames -> Name InlineApplier : ['$1', {applier_full, '$2'}].
 ArgNames -> Name Comma ArgNames : ['$1'] ++ '$3'.
-ArgNames -> Name Comma InlineApplier : ['$1', {applier, '$3'}].
 
 Args -> using Names : ['$2'].
 Args -> with Names : ['$2'].
@@ -103,8 +152,12 @@ Comma -> ',' 'NL' : nil.
 SpacedNames -> Name : ['$1'].
 SpacedNames -> Name SpacedNames : ['$1'] ++ '$2'.
 
+Number -> integer            : unwrap('$1').
+Number -> float              : unwrap('$1').
+
 Term -> var '(' Term ')'   : {func, unwrap('$1'), '$3'}.
 Term -> integer            : unwrap('$1').
+Term -> float              : unwrap('$1').
 Term -> var                : unwrap('$1').
 Term -> string             : unwrap('$1').
 Term -> uterm              : unwrap('$1').

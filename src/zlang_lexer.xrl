@@ -1,13 +1,15 @@
 Definitions.
 
 D        = [0-9]
+FLOAT    = [0-9\.]
 METHOD   = (OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT)
 L        = [A-Za-z]
 SL       = [A-Za-z0-9-_\\]
-WS       = ([\s\t\f]|;.*)  % whitespace is stuff or ; to end of line.
+% The newline in WS captures newlines in comments.  comment char is ; to EOL
+WS       = ([\s\t\f]|;(.*\n?))
 NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
-MATH     = (-|\+|\*|/)
+START_MATH  = \([\-\+\*\/]
 
 
 Rules.
@@ -16,6 +18,7 @@ Rules.
 {METHOD}    : {token, {http_method, TokenLine, TokenChars}}.
 
 % keywords
+use         : {token,{use,TokenLine}}.
 variable    : {token,{vars,TokenLine}}.
 var         : {token,{vars,TokenLine}}.
 variables   : {token,{vars,TokenLine}}.
@@ -24,28 +27,42 @@ by          : {token,{by,TokenLine}}.
 convert     : {token,{convert,TokenLine}}.
 combine     : {token,{combine,TokenLine}}.
 pair        : {token,{combine,TokenLine}}.
-for         : {token,{for,TokenLine}}.
-using       : {token,{using,TokenLine}}.
-having      : {token,{using,TokenLine}}.
-with        : {token,{with,TokenLine}}.
 then        : {token,{then,TokenLine}}.
 names       : {token,{names,TokenLine}}.
 values      : {token,{values,TokenLine}}.
 
 % types of things to deal with
-form      : {token,{form,TokenLine}}.
-cookie    : {token,{cookie,TokenLine}}.
-cookies   : {token,{cookie,TokenLine}}.
+form      : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
+server    : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
+cookie    : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
+cookies   : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
 
 % function parts
-is         : {token,{is,TokenLine}}.
-are        : {token,{are,TokenLine}}.
+is         : {token,{equals,TokenLine}}.
+are        : {token,{equals,TokenLine}}.
+=          : {token,{equals,TokenLine}}.
 come       : {token,{come,TokenLine}}.
-from       : {token,{from,TokenLine}}.
+
+% foruse
+for         : {token,{foruse,TokenLine}}.
+using       : {token,{foruse,TokenLine}}.
+having      : {token,{foruse,TokenLine}}.
+with        : {token,{foruse,TokenLine}}.
+
+% external module resolving
+from        : {token,{from,TokenLine}}.
 
 % conversion ops
 removing    : {token,{conversion_op,TokenLine,remove}}.
 remove      : {token,{conversion_op,TokenLine,remove}}.
+
+% cxn output
+output       : {token,{output,TokenLine}}.
+deliver      : {token,{output,TokenLine}}.
+send         : {token,{output,TokenLine}}.
+template     : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
+json         : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
+
 
 % temporal units
 millisecond  : {token,{millisecond,TokenLine}}.
@@ -60,8 +77,12 @@ term     : {token,{term,TokenLine,list_to_atom(TokenChars)}}.
 or     : {token,{union,TokenLine,list_to_atom(TokenChars)}}.
 and    : {token,{intersection,TokenLine,list_to_atom(TokenChars)}}.
 
+{START_MATH} : {token,{math,TokenLine,tl(TokenChars)}}. 
 /      : {token, {'/', TokenLine}}.
 {C}    : {token,{comparator,TokenLine,list_to_atom(TokenChars)}}.
+
+{D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
+{FLOAT}+ : {token,{float,TokenLine,list_to_float(TokenChars)}}.
 
 '{SL}+' : S = strip(TokenChars,TokenLen),
           {token,{uterm,TokenLine,S}}.
@@ -69,11 +90,9 @@ and    : {token,{intersection,TokenLine,list_to_atom(TokenChars)}}.
           {token,{uterm,TokenLine,S}}.
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 
-{D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
 [(),]  : {token,{list_to_atom(TokenChars),TokenLine}}.
 ->     : {token,{'->', TokenLine}}.
-{NL}+  : {token,{'NL', TokenLine}}.
-{MATH} : {token,{math,TokenLine,list_to_atom(TokenChars)}}. 
+{NL}   : {token,{'NL', TokenLine}}.
 {WS}+  : skip_token.
 \r     : skip_token.
 
