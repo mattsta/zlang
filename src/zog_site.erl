@@ -15,14 +15,19 @@ compile(Module) when is_list(Module) ->
   {ok, ParseTree} = zlang_parser:parse(Tokens),
   ParseTree.
 
+source_to_binary(Module, Name) ->
+  Compiled = compile(Module),
+  Evald = mod(Compiled, Name),
+  lfe_module_binary(iolist_to_binary(Evald)).
+
 %%%----------------------------------------------------------------------
 %%% evaluate primary forms
 %%%----------------------------------------------------------------------
-mod(Mod) ->
-  mod(Mod, "default", "default").
+mod(Mod, ModName) ->
+  mod(Mod, ModName, "default", "default").
 
-mod({module, Stmts}, ClientNamespace, SiteNamespace) ->
-  Mod =["(defmodule poopin (export all))\n\n",
+mod({module, Stmts}, ModuleName, ClientNamespace, SiteNamespace) ->
+  Mod =[args(["defmodule", ModuleName, args(["export", "all"])]), "\n\n",
         namespaces([{"client", ClientNamespace},
                     {"site", SiteNamespace}]),
         site_macros(),
