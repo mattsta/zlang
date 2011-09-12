@@ -45,6 +45,9 @@ inline_stmts(Stmts) ->
   ManagedStmts = lists:foldl(fun combine_functions/2, [], Stmts),
   [stmt(S) || S <- ManagedStmts].
 
+% HTTP functions are defined individually in zlang, but for LFE, all
+% function args/bodies must be under the same function name.  Here we combine
+% all http functions with the same name into the same tuple for creation.
 combine_functions({function,
                    {http, Method, [PrimaryRoute|RestPath], Body}}, Accum) ->
   case lists:keyfind(PrimaryRoute, 2, Accum) of
@@ -71,18 +74,43 @@ stmt({function, {local_fun, Name, Args, Body}}) ->
 
 
 http_body([], _Method, _Path) -> [];
-http_body([{vars, From, Vars}|RestBody], Method, Path) ->
+http_body([{vars, PullVarsFrom, Vars}|RestBody], Method, Path) ->
   VarsAppliersRemoved = remove_full_applier(Vars),
+  LocalVars = [vars_local(V) || V <- VarsAppliersRemoved],
+  WebVars = [vars_web(V) || V <- VarsAppliersRemoved],
   [indent(l),
-   expr(["with-http-vars", ato(From), Method,
-         args(VarsAppliersRemoved), fapplier(Vars, "tvar"),
+   expr(["with-http-vars", PullVarsFrom, Method,
+         args(LocalVars), alst(WebVars), fapplier(Vars, "tvar"),
          lst(http_body(RestBody, Method, Path))])];
+http_body([{equality, LocalNames, SourceValue}|RestBody], Method, Path) ->
+  UseLocalNames = name_or_names(LocalNames),
+  expr(["local-bind", UseLocalNames, body(SourceValue),
+        lst(http_body(RestBody, Method, Path))]);
 http_body([H|T], Method, Path) ->
   [body(H) | http_body(T, Method, Path)].
 
+% If we have a list of one item, capture the list itself
+name_or_names(Names) ->
+  case Names of
+    [N] -> N;
+      _ -> args(Names)
+  end.
+
+vars_local({alias, _WebName, LocalName, default, _Default}) -> LocalName;
+vars_local({default, WebName, _Default}) -> WebName; % web name is only name
+vars_local({alias, _WebName, LocalName}) -> LocalName;
+vars_local(V) -> V.
+
+vars_web({alias, WebName, _LocalName, default, Default}) ->
+  tup([str(WebName), bin(Default)]);
+vars_web({default, WebName, Default}) -> tup([str(WebName), bin(Default)]);
+vars_web({alias, WebName, _LocalName}) -> str(WebName);
+vars_web(V) -> str(V).
+
 local_body([]) -> [];
-local_body([{equality, LocalName, SourceValue}|RestBody]) ->
-  expr(["local-bind", args(LocalName), body(SourceValue),
+local_body([{equality, LocalNames, SourceValue}|RestBody]) ->
+  UseLocalNames = name_or_names(LocalNames),
+  expr(["local-bind", UseLocalNames, body(SourceValue),
         lst(local_body(RestBody))]);
 local_body([H|T]) ->
   [body(H) | local_body(T)].
@@ -94,9 +122,12 @@ math_body([StringNumber | More], Acc) ->
   math_body(More, [StringNumber | Acc]);
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
+
 body({math, Op, OnWhat}) ->
   expr(["math", Op, math_body(OnWhat, [])]);
 
+body({output, "plain", Arg}) ->
+  expr(["output", Arg]);
 body({output, Type, Args}) ->
   expr(["output", Type, args(lists:concat(Args))]);
 
@@ -140,10 +171,9 @@ expand_inline_appliers([{applier, Applier}|T], Accum) ->
   case Applier of
     {"meta", Module} -> args(["run-with-mod", Module]);
     {using, vars, remove, Members, Then} ->
-      ResolvedThen = case Then of
-                       combine_name_values -> ato("zip-name-values")
-                     end,
-      args(["remove-from-vars-then", args(Members), ResolvedThen])
+      case Then of
+        combine_name_values -> args(["remove-then-zip", args(Members)])
+      end
   end,
   expand_inline_appliers(T, [Resolved | Accum]);
 expand_inline_appliers([H|T], Accum) ->
@@ -168,7 +198,9 @@ fapplier(Args, Default) ->
 
 % Function of the applier for this lc
 lc_applier({convert, remove, What}) ->
-  fnc("re", "remove", ["tvar", str(What), atolst(["global"])]).
+  fnc("erlang", "iolist_to_binary", [
+    fnc("re", "remove", ["tvar", str(What), atolst(["global"])])
+  ]).
 
 
 
@@ -180,6 +212,9 @@ function_name_with_path([Base | T]) ->
 
 args(Args) ->
   lst(space(Args)).
+
+tups(Tups) when is_list(Tups) ->
+  [tup(T) || T <- Tups].
 
 strargs(Args) ->
   args([str(X) || X <- Args]).
@@ -199,12 +234,24 @@ a2l(X) when is_float(X) -> mochinum:digits(X);
 a2l(X) when is_integer(X) -> integer_to_list(X);
 a2l(X) when is_list(X) -> X.
 
+str({local_bind, Name}) -> Name;  % inject a top-level var here. nostr.
 str(E) -> ["'\"", a2l(E), "\""].
+
+flatstr(E) -> ["\"", a2l(E), "\""].
+
+bin(B) when is_list(B) -> ["#b", lst(flatstr(B)), " "].
 
 ato(A) when is_list(A) -> ["\'", A];
 ato(A) when is_atom(A) -> ["\'", atom_to_list(A)].
 
+tup(T) when is_tuple(T) ->
+  args(["tuple" | tuple_to_list(T)]);
+tup(T) when is_list(T) ->
+  args(["tuple" | T]).
+
 lst(E) -> ["(", E, ") "].
+
+alst(E) when is_list(E) -> args(["list" | E]).
 
 atolst(A) -> ["'", args(A)].
 

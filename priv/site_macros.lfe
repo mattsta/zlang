@@ -3,13 +3,29 @@
 (defsyntax append-cxn-arg-to
  ([current-args] (++ current-args (list (cxn-arg)))))
 
-(defmacro with-http-vars (method vars-type vars vars-lc body-after-vars)
- (let* ((lookup-fun (cond ((== 'GET method) 'form_queryvars)
-                           ((== 'POST method) 'form_postvars))))
-  `(let* ((vars-vals (lc ((<- tvar (: zog_page ,lookup-fun ',vars))) ,vars-lc))
-          (,vars vars-vals)
-          (vars-names ',vars))
-    ,@body-after-vars)))
+; vars-type: form or cookie
+; vars-local: local names of these variables
+; vars-web: names from the web form
+; vars-lc: a comprehension to run over resolved vars-web before returning
+; when free time => auto-generate var values by concatenating atoms... THEN
+;  we can reduce this back to a non-match macro and use lookup-fun for cookies
+;  too.  just needs a dumb compile time atom to list, concatenate, list to atom.
+(defmacro with-http-vars
+  (['form method vars-local vars-web vars-lc body-after-vars]
+   (let* ((lookup-fun (cond ((== 'GET method) 'form_queryvars)
+                            ((== 'POST method) 'form_postvars))))
+    `(let* ((form-vars-vals
+             (lc ((<- tvar
+                  (: zog_page ,lookup-fun ,(cxn-arg) ,vars-web))) ,vars-lc))
+            (,vars-local form-vars-vals)
+            (form-vars-names ',vars-local))
+      ,@body-after-vars)))
+  (['cookie method vars-local vars-web vars-lc body-after-vars]
+   `(let* ((cookie-vars-vals
+            (lc ((<- tvar (: zog_page cookie ,(cxn-arg) ',vars-web))) ,vars-lc))
+           (,vars-local cookie-vars-vals)
+           (cookie-vars-names ',vars-local))
+     ,@body-after-vars)))
 
 (defmacro create-http-function (base-path method-subpath-bodies)
 ; (let* ((outer-lc (lc ((<- (list abc none) '((def bob) (hij meme)))) abc)))
@@ -17,14 +33,13 @@
    ,@(lc ((<- (list method sub-path body) method-subpath-bodies))
       `([,method ,sub-path ,(cxn-arg)] ,body))))
 
-(defmacro remove-from-vars-then (remove-vars action)
+; Add param to auto-make COOKIE or FORM vars for here
+(defmacro remove-then-zip (remove-vars)
  `(let* ((cleanup (lambda (del acc)
                    (: lists keydelete del 1 acc)))
-         ([zipped] (: lists zip vars-names vars-vals))
-         ([removed] (: lists foldl cleanup zipped ',remove-vars)))
-   (case ,action
-    (['zip-name-values] removed)
-    ([_] '()))))
+         (zipped  (: lists zip form-vars-names form-vars-vals))
+         (removed (: lists foldl cleanup zipped ',remove-vars)))
+   removed))
 
 (defmacro safe-external-call
  ([mod func]      `(: ,mod ,func))
@@ -49,4 +64,6 @@
 
 (defmacro output
  (['template args] `(: zog_page ok ,(cxn-arg) (: zog_template rn ,@args)))
- (['json args] `(: zog_page ok (cxn-arg) (: mochijson2 encode ,args))))
+ (['json arg]      `(: zog_page ok ,(cxn-arg) (: mochijson2 encode ,arg)))
+ (['plain arg ]    `(: zog_page ok ,(cxn-arg) ,args))
+ ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))

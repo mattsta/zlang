@@ -32,10 +32,10 @@ names       : {token,{names,TokenLine}}.
 values      : {token,{values,TokenLine}}.
 
 % types of things to deal with
-form      : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
+form      : {token,{vars_src,TokenLine,form}}.
 server    : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
-cookie    : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
-cookies   : {token,{vars_src,TokenLine,list_to_atom(TokenChars)}}.
+cookie    : {token,{vars_src,TokenLine,cookie}}.
+cookies   : {token,{vars_src,TokenLine,cookie}}.
 
 % function parts
 is         : {token,{equals,TokenLine}}.
@@ -56,12 +56,16 @@ from        : {token,{from,TokenLine}}.
 removing    : {token,{conversion_op,TokenLine,remove}}.
 remove      : {token,{conversion_op,TokenLine,remove}}.
 
+% variable defaults
+default      : {token,{default,TokenLine}}.
+
 % cxn output
 output       : {token,{output,TokenLine}}.
 deliver      : {token,{output,TokenLine}}.
 send         : {token,{output,TokenLine}}.
 template     : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
 json         : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
+plain        : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
 
 
 % temporal units
@@ -77,6 +81,9 @@ term     : {token,{term,TokenLine,list_to_atom(TokenChars)}}.
 or     : {token,{union,TokenLine,list_to_atom(TokenChars)}}.
 and    : {token,{intersection,TokenLine,list_to_atom(TokenChars)}}.
 
+as     : {token,{as,TokenLine}}.
+:      : {token,{':',TokenLine}}.
+\*      : {token,{'*',TokenLine}}.
 {START_MATH} : {token,{math,TokenLine,tl(TokenChars)}}. 
 /      : {token, {'/', TokenLine}}.
 {C}    : {token,{comparator,TokenLine,list_to_atom(TokenChars)}}.
