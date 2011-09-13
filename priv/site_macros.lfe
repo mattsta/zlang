@@ -56,14 +56,29 @@
  `(let ((,local-name ,value))
    ,@bound-body))
 
+(defmacro append-tups (original-var append-tups)
+ `(: lists append ,original-var ,append-tups))
+
 (defmacro math
  (['+ vals] `(+ ,@vals))
  (['- vals] `(- ,@vals))
  (['/ vals] `(/ ,@vals))
  (['* vals] `(* ,@vals)))
 
+(defun atom-first
+ ([((tuple something something-else) . xs)]
+  (cons (tuple (to-atom something) something-else) (atom-first xs)))
+ ([()] ()))
+
+(defun to-atom
+ ([x] (when (is_atom x)) x)
+ ([x] (when (is_list x)) (list_to_atom x))
+ ([x] (when (is_binary x)) (to-atom (binary_to_list x))))
+
 (defmacro output
- (['template args] `(: zog_page ok ,(cxn-arg) (: zog_template rn ,@args)))
+ (['template (site . (template-name . bindings))] `(: zog_page ok ,(cxn-arg)
+                     (: zog_template rn ,site ,template-name
+                      (atom-first ,@bindings))))
  (['json arg]      `(: zog_page ok ,(cxn-arg) (: mochijson2 encode ,arg)))
  (['plain arg ]    `(: zog_page ok ,(cxn-arg) ,args))
  ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))

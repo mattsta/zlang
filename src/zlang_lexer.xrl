@@ -10,6 +10,7 @@ WS       = ([\s\t\f]|;(.*\n?))
 NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
 START_MATH  = \([\-\+\*\/]
+ANY      = ([^"])
 
 
 Rules.
@@ -25,8 +26,6 @@ variables   : {token,{vars,TokenLine}}.
 vars        : {token,{vars,TokenLine}}.
 by          : {token,{by,TokenLine}}.
 convert     : {token,{convert,TokenLine}}.
-combine     : {token,{combine,TokenLine}}.
-pair        : {token,{combine,TokenLine}}.
 then        : {token,{then,TokenLine}}.
 names       : {token,{names,TokenLine}}.
 values      : {token,{values,TokenLine}}.
@@ -67,6 +66,8 @@ template     : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
 json         : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
 plain        : {token,{output_type,TokenLine,list_to_atom(TokenChars)}}.
 
+% our built-in datatypes
+pair         : {token,{pair,TokenLine}}.
 
 % temporal units
 millisecond  : {token,{millisecond,TokenLine}}.
@@ -91,9 +92,9 @@ as     : {token,{as,TokenLine}}.
 {D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
 {FLOAT}+ : {token,{float,TokenLine,list_to_float(TokenChars)}}.
 
-'{SL}+' : S = strip(TokenChars,TokenLen),
+'{ANY}+' : S = strip(TokenChars,TokenLen),
           {token,{uterm,TokenLine,S}}.
-"{SL}+" : S = strip(TokenChars,TokenLen),
+"{ANY}+" : S = strip(TokenChars,TokenLen),
           {token,{uterm,TokenLine,S}}.
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 

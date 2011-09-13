@@ -11,11 +11,12 @@ HttpFunctionStatements HttpFunctionStatement
 InternalCall ExternalCall ArgName ArgNames
 Names Name
 SpacedNames
-Args ForUse ForUseArgs
+ForUse ForUseArgs
 EqualityFirst Equality Delivery
 Comma
 MathApplier MathTerms
 NLEater Number
+Pair Pairs ExistingPlusMore
 StoreDelim Storage TemporalUnit Term
 .
 
@@ -27,7 +28,7 @@ vars
 math
 use form cookie cookies and fields are come from is
 convert by conversion_op
-pair combine for names then values with
+pair combine for names then values
 a within in events last the window day hour minute
 foruse vars_src equals output output_type
 float as default
@@ -103,29 +104,19 @@ FunctionStatement -> InternalCall 'NL' : '$1'.
 Equality -> Names equals ExternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
+Equality -> Names equals Pairs         : {equality, '$1', '$3'}.
+Equality -> Names equals ExistingPlusMore : {equality, '$1', '$3'}.
+
+Pair -> '(' pair Name Name ')' : {pair, '$3', '$4'}.
+Pair -> '(' Name Name ')' : {pair, '$2', '$3'}.
+Pairs -> Pair : ['$1'].
+Pairs -> Pair Comma Pairs : ['$1'] ++ '$3'.
+
+ExistingPlusMore -> Name foruse pair Pairs : {append, '$1', '$4'}.
+ExistingPlusMore -> Name foruse Pairs : {append, '$1', '$3'}.
 
 Vars -> use vars_src vars ArgNames : {vars, unwrap('$2'), '$4'}.
 Vars -> use vars_src ArgNames : {vars, unwrap('$2'), '$3'}.
-
-%%%----------------------------------------------------------------------
-%%% Meta-specific built-ins (template delivery, XHR, comet, pubsub, ...)
-%%%----------------------------------------------------------------------
-Delivery -> output Name : {output, "plain", ['$2']}.
-Delivery -> output output_type ForUse : {output, unwrap('$2'), '$3'}.
-
-%%%----------------------------------------------------------------------
-%%% Maths!
-%%%----------------------------------------------------------------------
-% MathApplier is a bit odd because 'math' *includes* the first '('
-% *because* '/' is already a top level token for URL naming.
-MathApplier -> math MathTerms ')' : {math, unwrap('$1'), '$2'}.
-
-MathTerms -> Name : ['$1'].
-MathTerms -> Number : ['$1'].
-MathTerms -> MathApplier : ['$1'].
-MathTerms -> Name MathTerms : ['$1'] ++ '$2'.
-MathTerms -> Number MathTerms : ['$1'] ++ '$2'.
-MathTerms -> MathApplier MathTerms : ['$1'] ++ '$2'.
 
 %%%----------------------------------------------------------------------
 %%% Appliers
@@ -141,10 +132,24 @@ ApplierType -> Name Names : {'$1', '$2'}.
 ApplierType -> convert by conversion_op Name :
     {convert, unwrap('$3'), '$4'}.
 % comprehension applier thing
-ApplierType -> foruse vars conversion_op Names then combine names ',' values :
+ApplierType -> foruse vars conversion_op Names then pair names ',' values :
     {using, vars, unwrap('$3'), '$4', combine_name_values}.
-ApplierType -> foruse Name conversion_op Names then combine names ',' values :
+ApplierType -> foruse Name conversion_op Names then pair names ',' values :
     {using, '$2', unwrap('$3'), '$4', combine_name_values}.
+
+%%%----------------------------------------------------------------------
+%%% Maths!
+%%%----------------------------------------------------------------------
+% MathApplier is a bit odd because 'math' *includes* the first '('
+% *because* '/' is already a top level token for URL naming.
+MathApplier -> math MathTerms ')' : {math, unwrap('$1'), '$2'}.
+
+MathTerms -> Name : ['$1'].
+MathTerms -> Number : ['$1'].
+MathTerms -> MathApplier : ['$1'].
+MathTerms -> Name MathTerms : ['$1'] ++ '$2'.
+MathTerms -> Number MathTerms : ['$1'] ++ '$2'.
+MathTerms -> MathApplier MathTerms : ['$1'] ++ '$2'.
 
 %%%----------------------------------------------------------------------
 %%% Calls
@@ -178,9 +183,6 @@ ArgNames -> ArgName Comma ArgNames : ['$1'] ++ '$3'.
 ArgNames -> ArgName Comma ArgNames InlineApplier :
     ['$1'] ++ ['$3', {applier_full, '$4'}].
 
-Args -> using Names : ['$2'].
-Args -> with Names : ['$2'].
-
 Names -> Name : ['$1'].
 Names -> Name Comma Names : ['$1'] ++ '$3'.
 %Names -> Name ',' 'NL' Names : ['$1'] ++ '$4'.
@@ -204,6 +206,12 @@ Term -> Number             : '$1'.
 Term -> var                : unwrap('$1').
 Term -> string             : unwrap('$1').
 Term -> uterm              : unwrap('$1').
+
+%%%----------------------------------------------------------------------
+%%% Meta-specific built-ins (template delivery, XHR, comet, pubsub, ...)
+%%%----------------------------------------------------------------------
+Delivery -> output Name : {output, "plain", ['$2']}.
+Delivery -> output output_type ForUse : {output, unwrap('$2'), '$3'}.
 
 %%%----------------------------------------------------------------------
 %%% remnants from reverse-pubsub

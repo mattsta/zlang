@@ -87,10 +87,8 @@ http_body([{vars, PullVarsFrom, Vars}|RestBody], Method, Path) ->
    expr(["with-http-vars", PullVarsFrom, Method,
          args(LocalVars), alst(WebVars), fapplier(Vars, "tvar"),
          lst(http_body(RestBody, Method, Path))])];
-http_body([{equality, LocalNames, SourceValue}|RestBody], Method, Path) ->
-  UseLocalNames = name_or_names(LocalNames),
-  expr(["local-bind", UseLocalNames, body(SourceValue),
-        lst(http_body(RestBody, Method, Path))]);
+http_body([{equality, _, _} = Equality|RestBody], Method, Path) ->
+  equality(Equality, RestBody, fun(E) -> http_body(E, Method, Path) end);
 http_body([H|T], Method, Path) ->
   [body(H) | http_body(T, Method, Path)].
 
@@ -113,13 +111,20 @@ vars_web({alias, WebName, _LocalName}) -> str(WebName);
 vars_web(V) -> str(V).
 
 local_body([]) -> [];
-local_body([{equality, LocalNames, SourceValue}|RestBody]) ->
-  UseLocalNames = name_or_names(LocalNames),
-  expr(["local-bind", UseLocalNames, body(SourceValue),
-        lst(local_body(RestBody))]);
+local_body([{equality, _, _} = Equality|RestBody]) ->
+  equality(Equality, RestBody, fun(E) -> local_body(E) end);
 local_body([H|T]) ->
   [body(H) | local_body(T)].
 
+
+equality({equality, LocalNames, SourceValue}, RestBody, NextFun) ->
+  UseLocalNames = name_or_names(LocalNames),
+  ResolvedSource = case SourceValue of
+                     S when is_tuple(S) -> body(S);
+                      S when is_list(S) -> [body(E) || E <- S]
+                   end,
+  expr(["local-bind", UseLocalNames, ResolvedSource,
+        lst(NextFun(RestBody))]).
 
 math_body([{math, Op, InnerRemaining} | More], Acc) ->
   math_body(More, [args(["math", Op, math_body(InnerRemaining, [])]) | Acc]);
@@ -127,6 +132,12 @@ math_body([StringNumber | More], Acc) ->
   math_body(More, [StringNumber | Acc]);
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
+
+body({pair, Key, Value}) ->
+  tup([bin(Key), bin(Value)]);
+
+body({append, From, Pairs}) ->
+  expr(["append-tups", From, alst([body(P) || P <- Pairs])]);
 
 body({math, Op, OnWhat}) ->
   expr(["math", Op, math_body(OnWhat, [])]);
@@ -249,6 +260,8 @@ bin(B) when is_list(B) -> ["#b", lst(flatstr(B)), " "].
 ato(A) when is_list(A) -> ["\'", A];
 ato(A) when is_atom(A) -> ["\'", atom_to_list(A)].
 
+tup({pair, Key, Value}) ->
+  tup([Key, Value]);
 tup(T) when is_tuple(T) ->
   args(["tuple" | tuple_to_list(T)]);
 tup(T) when is_list(T) ->
