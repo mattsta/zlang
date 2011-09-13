@@ -10,6 +10,7 @@ WS       = ([\s\t\f]|;(.*\n?))
 NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
 START_MATH  = \([\-\+\*\/]
+ATOM      = ([^"\s+,])
 ANY      = ([^"])
 
 
@@ -92,10 +93,10 @@ as     : {token,{as,TokenLine}}.
 {D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
 {FLOAT}+ : {token,{float,TokenLine,list_to_float(TokenChars)}}.
 
-'{ANY}+' : S = strip(TokenChars,TokenLen),
-          {token,{uterm,TokenLine,S}}.
-"{ANY}+" : S = strip(TokenChars,TokenLen),
-          {token,{uterm,TokenLine,S}}.
+'{ATOM}+ : S = strip_l1(TokenChars,TokenLen),
+          {token,{ustr,TokenLine,S}}.
+"{ANY}+" : S = strip_b2(TokenChars,TokenLen),
+          {token,{ustr,TokenLine,S}}.
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 
 [(),]  : {token,{list_to_atom(TokenChars),TokenLine}}.
@@ -107,7 +108,10 @@ as     : {token,{as,TokenLine}}.
 
 Erlang code.
 
-l2a(List) -> list_to_atom(List).
+% strip left one
+strip_l1(TokenChars,TokenLen) ->
+    lists:sublist(TokenChars, 2, TokenLen - 1).
 
-strip(TokenChars,TokenLen) -> 
+% strip both two
+strip_b2(TokenChars,TokenLen) ->
     lists:sublist(TokenChars, 2, TokenLen - 2).

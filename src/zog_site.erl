@@ -31,9 +31,9 @@ mod({module, Stmts}, ModuleName, ClientNamespace, SiteNamespace) ->
         namespaces([{"client", ClientNamespace},
                     {"site", SiteNamespace}]),
         site_macros(),
-        inline_stmts(Stmts)],
-  BMod = iolist_to_binary(Mod),
-  replace_until_done(BMod, "\\)\s+\\)", "))").
+        inline_stmts(Stmts)].
+%  BMod = iolist_to_binary(Mod),
+%  replace_until_done(BMod, "\\)\s+\\)", "))").
 
 site_macros() ->
   PathToEbin = filename:dirname(code:where_is_file("zog_site.beam")),
@@ -95,8 +95,8 @@ http_body([H|T], Method, Path) ->
 % If we have a list of one item, capture the list itself
 name_or_names(Names) ->
   case Names of
-    [N] -> N;
-      _ -> args(Names)
+    [N] -> proper(N);
+      _ -> args([proper(N) || N <- Names])
   end.
 
 vars_local({alias, _WebName, LocalName, default, _Default}) -> LocalName;
@@ -123,7 +123,7 @@ equality({equality, LocalNames, SourceValue}, RestBody, NextFun) ->
                      S when is_tuple(S) -> body(S);
                       S when is_list(S) -> [body(E) || E <- S]
                    end,
-  expr(["local-bind", UseLocalNames, ResolvedSource,
+  expr(["local-bind", proper(UseLocalNames), ResolvedSource,
         lst(NextFun(RestBody))]).
 
 math_body([{math, Op, InnerRemaining} | More], Acc) ->
@@ -133,8 +133,14 @@ math_body([StringNumber | More], Acc) ->
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
 
+body({str, _} = S) ->
+  proper(S);
+
+body({var, _} = V) ->
+  proper(V);
+
 body({pair, Key, Value}) ->
-  tup([bin(Key), bin(Value)]);
+  tup([proper(Key), proper(Value)]);
 
 body({append, From, Pairs}) ->
   expr(["append-tups", From, alst([body(P) || P <- Pairs])]);
@@ -142,21 +148,21 @@ body({append, From, Pairs}) ->
 body({math, Op, OnWhat}) ->
   expr(["math", Op, math_body(OnWhat, [])]);
 
-body({output, "plain", Arg}) ->
-  expr(["output", Arg]);
+body({output, "plain", [Arg]}) ->
+  expr(["output", proper(Arg)]);
 body({output, Type, Args}) ->
   expr(["output", Type, args(lists:concat(Args))]);
 
-body({external_call, Module, Function}) ->
+body({external_call, {var, Module}, {var, Function}}) ->
   expr(["safe-external-call", Module, Function]);
 
-body({external_call, Module, Function, Args}) ->
+body({external_call, {var, Module}, {var, Function}, Args}) ->
   expr(["safe-external-call", Module, Function, arglist(lists:concat(Args))]);
 
-body({call, Function}) ->
+body({call, {var, Function}}) ->
   expr(["safe-call", Function]);
 
-body({call, Function, Args}) ->
+body({call, {var, Function}, Args}) ->
   expr(["safe-call", Function, arglist(lists:concat(Args))]).
 
 %%%----------------------------------------------------------------------
@@ -244,18 +250,24 @@ expr(Args) ->
 lc(Target, From, DoWhat) ->
   args(["lc", args(["<-", Target, From]), DoWhat]).
 
+a2l({var, Var}) when is_list(Var) -> Var;
 a2l(X) when is_atom(X) -> atom_to_list(X);
 a2l(X) when is_list(X) andalso is_list(hd(X)) -> X;
 a2l(X) when is_float(X) -> mochinum:digits(X);
 a2l(X) when is_integer(X) -> integer_to_list(X);
 a2l(X) when is_list(X) -> X.
 
+proper({var, Var}) when is_list(Var) -> Var;
+proper({str, Str}) when is_list(Str) -> bin(Str);
+proper(Other) -> Other.
+
 str({local_bind, Name}) -> Name;  % inject a top-level var here. nostr.
 str(E) -> ["'\"", a2l(E), "\""].
 
 flatstr(E) -> ["\"", a2l(E), "\""].
 
-bin(B) when is_list(B) -> ["#b", lst(flatstr(B)), " "].
+bin(B) when is_list(B) -> ["#b", lst(flatstr(B)), " "];
+bin({str, Str}) when is_list(Str) -> bin(Str).
 
 ato(A) when is_list(A) -> ["\'", A];
 ato(A) when is_atom(A) -> ["\'", atom_to_list(A)].
@@ -280,7 +292,7 @@ indent(l) -> " ";
 indent(v) -> [indent(l), "       "].
 
 space(Things) ->
-  string:join([a2l(X) || X <- Things], " ").
+  string:join([a2l(proper(X)) || X <- Things], " ").
 
 replace_until_done(Input, What, Fix) ->
   case re:replace(Input, What, Fix, [global]) of

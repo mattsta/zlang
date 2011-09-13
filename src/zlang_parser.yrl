@@ -17,7 +17,9 @@ Comma
 MathApplier MathTerms
 NLEater Number
 Pair Pairs ExistingPlusMore
+Str
 StoreDelim Storage TemporalUnit Term
+AnyName
 .
 
 
@@ -31,7 +33,7 @@ convert by conversion_op
 pair combine for names then values
 a within in events last the window day hour minute
 foruse vars_src equals output output_type
-float as default
+float as default ustr
 atom var integer string set union intersection comparator uterm.
 
 %%%----------------------------------------------------------------------
@@ -107,8 +109,8 @@ Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
 Equality -> Names equals Pairs         : {equality, '$1', '$3'}.
 Equality -> Names equals ExistingPlusMore : {equality, '$1', '$3'}.
 
-Pair -> '(' pair Name Name ')' : {pair, '$3', '$4'}.
-Pair -> '(' Name Name ')' : {pair, '$2', '$3'}.
+Pair -> '(' pair AnyName AnyName ')' : {pair, '$3', '$4'}.
+Pair -> '(' AnyName AnyName ')' : {pair, '$2', '$3'}.
 Pairs -> Pair : ['$1'].
 Pairs -> Pair Comma Pairs : ['$1'] ++ '$3'.
 
@@ -173,21 +175,24 @@ ForUse -> foruse 'NL' ArgNames : ['$3'].
 %%%----------------------------------------------------------------------
 ArgName -> Name : '$1'.
 ArgName -> Name as Name : {alias, '$1', '$3'}.
-ArgName -> Name default Name : {default, '$1', '$3'}.
+ArgName -> Name default AnyName : {default, '$1', '$3'}.
 ArgName -> Name as Name default Name : {alias, '$1', '$3', default, '$5'}.
-ArgName -> Name default Name as Name : {alias, '$1', '$5', default, '$3'}.
+ArgName -> Name default AnyName as Name : {alias, '$1', '$5', default, '$3'}.
 ArgName -> InlineApplier : {applier, '$1'}.
 
 ArgNames -> ArgName : ['$1'].
-ArgNames -> ArgName Comma ArgNames : ['$1'] ++ '$3'.
+ArgNames -> ArgName Comma ArgNames : lists:flatten(['$1'] ++ '$3').
 ArgNames -> ArgName Comma ArgNames InlineApplier :
-    ['$1'] ++ ['$3', {applier_full, '$4'}].
+    lists:flatten(['$1'] ++ ['$3', {applier_full, '$4'}]).
 
 Names -> Name : ['$1'].
 Names -> Name Comma Names : ['$1'] ++ '$3'.
-%Names -> Name ',' 'NL' Names : ['$1'] ++ '$4'.
 
-Name -> uterm : unwrap('$1').
+Name -> uterm : {var, unwrap('$1')}.
+Str -> ustr   : {str, unwrap('$1')}.
+
+AnyName -> Name : '$1'.
+AnyName -> Str  : '$1'.
 
 Comma -> ',' : nil.
 Comma -> ',' 'NL' : nil.
