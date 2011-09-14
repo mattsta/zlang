@@ -22,7 +22,7 @@
       ,@body-after-vars)))
   (['cookie method vars-local vars-web vars-lc body-after-vars]
    `(let* ((cookie-vars-vals
-            (lc ((<- tvar (: zog_page cookie ,(cxn-arg) ',vars-web))) ,vars-lc))
+            (lc ((<- tvar (: zog_page cookie ,(cxn-arg) ,vars-web))) ,vars-lc))
            (,vars-local cookie-vars-vals)
            (cookie-vars-names ',vars-local))
      ,@body-after-vars)))
