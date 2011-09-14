@@ -82,3 +82,9 @@
  (['json arg]      `(: zog_page ok ,(cxn-arg) (: mochijson2 encode ,arg)))
  (['plain arg ]    `(: zog_page ok ,(cxn-arg) ,args))
  ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))
+
+(defmacro cxn-property
+ (['path] `(: ,(cxn-arg) get 'path)))
+
+(defmacro user-property
+ (['name] `(: ,(cxn-arg) userId)))

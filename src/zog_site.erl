@@ -133,6 +133,12 @@ math_body([StringNumber | More], Acc) ->
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
 
+body({cxn, {_, Property}}) ->
+  args(["cxn-property", Property]);
+
+body({user, {_, Property}}) ->
+  args(["user-property", Property]);
+
 body({str, _} = S) ->
   proper(S);
 

@@ -19,7 +19,7 @@ NLEater Number
 Pair Pairs ExistingPlusMore
 Str
 StoreDelim Storage TemporalUnit Term
-AnyName
+GlobalActor AnyName
 .
 
 
@@ -27,7 +27,7 @@ Terminals '(' ')' ',' '->' '/' 'NL' ':' '*'
 http_method
 slash using
 vars
-math
+math cxn user
 use form cookie cookies and fields are come from is
 convert by conversion_op
 pair combine for names then values
@@ -107,6 +107,7 @@ Equality -> Names equals ExternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
 Equality -> Names equals Pairs         : {equality, '$1', '$3'}.
+Equality -> Names equals GlobalActor   : {equality, '$1', '$3'}.
 Equality -> Names equals ExistingPlusMore : {equality, '$1', '$3'}.
 
 Pair -> '(' pair AnyName AnyName ')' : {pair, '$3', '$4'}.
@@ -119,6 +120,9 @@ ExistingPlusMore -> Name foruse Pairs : {append, '$1', '$3'}.
 
 Vars -> use vars_src vars ArgNames : {vars, unwrap('$2'), '$4'}.
 Vars -> use vars_src ArgNames : {vars, unwrap('$2'), '$3'}.
+
+GlobalActor -> '(' cxn AnyName ')' : {cxn, '$3'}.
+GlobalActor -> '(' user AnyName ')' : {cxn, '$3'}.
 
 %%%----------------------------------------------------------------------
 %%% Appliers

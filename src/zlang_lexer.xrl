@@ -76,6 +76,11 @@ minute       : {token,{minute,TokenLine}}.
 hour         : {token,{hour,TokenLine}}.
 day          : {token,{day,TokenLine}}.
 
+% magic available globals
+cxn      : {token,{cxn,TokenLine}}.
+user     : {token,{user,TokenLine}}.
+usr      : {token,{user,TokenLine}}.
+
 % post types
 json     : {token,{json,TokenLine,list_to_atom(TokenChars)}}.
 term     : {token,{term,TokenLine,list_to_atom(TokenChars)}}.
