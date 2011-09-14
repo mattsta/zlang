@@ -6,12 +6,14 @@ METHOD   = (OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT)
 L        = [A-Za-z]
 SL       = [A-Za-z0-9-_\\]
 % The newline in WS captures newlines in comments.  comment char is ; to EOL
-WS       = ([\s\t\f]|;(.*\n?))
+WS       = [\s\t\f]
+COMMENT  = ;.*\n?
 NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
 START_MATH  = \([\-\+\*\/]
 ATOM      = ([^"\s+,])
 ANY      = ([^"])
+DOUBLE_QUOTED = "(\\\^.|\\.|[^\"])*"
 
 
 Rules.
@@ -91,32 +93,58 @@ and    : {token,{intersection,TokenLine,list_to_atom(TokenChars)}}.
 as     : {token,{as,TokenLine}}.
 :      : {token,{':',TokenLine}}.
 \*      : {token,{'*',TokenLine}}.
-{START_MATH} : {token,{math,TokenLine,tl(TokenChars)}}. 
+{START_MATH} : {token,{math,TokenLine,tl(TokenChars)}}.
 /      : {token, {'/', TokenLine}}.
 {C}    : {token,{comparator,TokenLine,list_to_atom(TokenChars)}}.
 
 {D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
 {FLOAT}+ : {token,{float,TokenLine,list_to_float(TokenChars)}}.
 
-'{ATOM}+ : S = strip_l1(TokenChars,TokenLen),
+'{ATOM}+ : S = build_atom(TokenChars,TokenLen),
           {token,{ustr,TokenLine,S}}.
-"{ANY}+" : S = strip_b2(TokenChars,TokenLen),
-          {token,{ustr,TokenLine,S}}.
+
+{DOUBLE_QUOTED} : S = build_string(TokenChars,TokenLen),
+                  {token,{ustr,TokenLine,S}}.
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 
 [(),]  : {token,{list_to_atom(TokenChars),TokenLine}}.
 ->     : {token,{'->', TokenLine}}.
 {NL}   : {token,{'NL', TokenLine}}.
-{WS}+  : skip_token.
-\r     : skip_token.
+
+% skippable
+{COMMENT} : skip_token.
+{WS}+     : skip_token.
+\r        : skip_token.
 
 
 Erlang code.
 
-% strip left one
-strip_l1(TokenChars,TokenLen) ->
+build_atom(TokenChars,TokenLen) ->
     lists:sublist(TokenChars, 2, TokenLen - 1).
 
-% strip both two
-strip_b2(TokenChars,TokenLen) ->
-    lists:sublist(TokenChars, 2, TokenLen - 2).
+build_string(TokenChars,TokenLen) ->
+    unescape_string(lists:sublist(TokenChars, 2, TokenLen - 2)).
+
+unescape_string(String) -> unescape_string(String, []).
+unescape_string([], Output) ->
+  lists:reverse(Output);
+unescape_string([$\\, Escaped | Rest], Output) ->
+  Char = case Escaped of
+    $\\ -> $\\;
+    $/  -> $/;
+    $\" -> $\";
+    $\' -> $\';
+    $b  -> $\b;
+    $d  -> $\d;
+    $e  -> $\e;
+    $f  -> $\f;
+    $n  -> $\n;
+    $r  -> $\r;
+    $s  -> $\s;
+    $t  -> $\t;
+    $v  -> $\v;
+    _   -> throw({error, {"unrecognized escape sequence: ", [$\\, Escaped]}})
+  end,
+  unescape_string(Rest, [Char|Output]);
+unescape_string([Char|Rest], Output) ->
+  unescape_string(Rest, [Char|Output]).
