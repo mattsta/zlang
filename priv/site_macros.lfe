@@ -83,8 +83,12 @@
  (['plain arg ]    `(: zog_page ok ,(cxn-arg) ,args))
  ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))
 
+(defmacro cxn
+ ([function arg] `(call ,(cxn-arg) ,function ,arg))
+ ([function] `(call ,(cxn-arg) ,function)))
+
 (defmacro cxn-property
- (['path] `(: ,(cxn-arg) get 'path)))
+ (['path] `(cxn 'get 'path)))
 
 (defmacro user-property
- (['name] `(: ,(cxn-arg) userId)))
+ (['name] `(cxn 'userId)))
