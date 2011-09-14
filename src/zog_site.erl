@@ -227,7 +227,7 @@ fapplier(Args, Default) ->
 % Function of the applier for this lc
 lc_applier({convert, remove, What}) ->
   fnc("erlang", "iolist_to_binary", [
-    fnc("re", "remove", ["tvar", str(What), atolst(["global"])])
+    fnc("re", "replace", ["tvar", str(What), str([]), atolst(["global"])])
   ]).
 
 
