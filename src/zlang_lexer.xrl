@@ -132,7 +132,11 @@ unescape_string([$\\, Escaped | Rest], Output) ->
   Char = case Escaped of
     $\\ -> $\\;
     $/  -> $/;
-    $\" -> $\";
+    % Since we are converting all strings to binaries, and LFE binaries are
+    % defined as #b("string"), we must leave quotes *escaped* in the binary
+    % shorthand or else string "string\"quote\"er" ends up
+    % as #b("string"quote"er") which breaks.
+    $\" -> [$\\, $\"];
     $\' -> $\';
     $b  -> $\b;
     $d  -> $\d;
