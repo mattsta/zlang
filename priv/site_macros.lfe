@@ -80,7 +80,7 @@
                      (: zog_template rn ,site ,template-name
                       (atom-first ,@bindings))))
  (['json arg]      `(: zog_page ok ,(cxn-arg) (: mochijson2 encode ,arg)))
- (['plain arg ]    `(: zog_page ok ,(cxn-arg) ,args))
+ (['plain arg]     `(: zog_page ok ,(cxn-arg) ,args))
  ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))
 
 (defmacro cxn
@@ -88,7 +88,8 @@
  ([function] `(call ,(cxn-arg) ,function)))
 
 (defmacro cxn-property
- (['path] `(cxn 'get 'path)))
+ ([#b("path")] `(cxn 'get 'path)))
+; ([_] `'"invalid property requested"))
 
 (defmacro user-property
- (['name] `(cxn 'userId)))
+ ([#b("name")] `(cxn 'userId)))

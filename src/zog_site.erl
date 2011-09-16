@@ -134,10 +134,10 @@ math_body([], Acc) -> args(lists:reverse(Acc)).
 
 
 body({cxn, {_, Property}}) ->
-  args(["cxn-property", Property]);
+  args(["cxn-property", bin(Property)]);
 
 body({user, {_, Property}}) ->
-  args(["user-property", Property]);
+  args(["user-property", bin(Property)]);
 
 body({str, _} = S) ->
   proper(S);
