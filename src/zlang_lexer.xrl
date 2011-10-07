@@ -7,12 +7,12 @@ L        = [A-Za-z]
 SL       = [A-Za-z0-9-_\\]
 % The newline in WS captures newlines in comments.  comment char is ; to EOL
 WS       = [\s\t\f]
-COMMENT  = ;.*\n?
+COMMENT  = #.*\n?
 NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
-START_MATH  = \([\-\+\*\/]
-ATOM      = ([^"\s+,])
-ANY      = ([^"])
+START_MATH  = \([\-\+\*\/\%]
+%ATOM      = ([^"\s+,\(\)])  % this is still too liberal.  captures \n, etc
+ATOM      = ([A-Za-z0-9_\[\]-])
 DOUBLE_QUOTED = "(\\\^.|\\.|[^\"])*"
 
 
@@ -21,17 +21,38 @@ Rules.
 % HTTP methods
 {METHOD}    : {token, {http_method, TokenLine, TokenChars}}.
 
+% unique things
+unique      : {token,{unique,TokenLine}}.
+
+% sizes
+big         : {token,{big,TokenLine}}.
+long        : {token,{big,TokenLine}}.
+small       : {token,{small,TokenLine}}.
+short       : {token,{small,TokenLine}}.
+
+% logging
+whisper     : {token,{whisper,TokenLine}}.
+say         : {token,{whisper,TokenLine}}.
+
 % keywords
 use         : {token,{use,TokenLine}}.
 variable    : {token,{vars,TokenLine}}.
 var         : {token,{vars,TokenLine}}.
 variables   : {token,{vars,TokenLine}}.
 vars        : {token,{vars,TokenLine}}.
-by          : {token,{by,TokenLine}}.
 convert     : {token,{convert,TokenLine}}.
-then        : {token,{then,TokenLine}}.
 names       : {token,{names,TokenLine}}.
 values      : {token,{values,TokenLine}}.
+
+% pattern matching/inline fun expansion
+match        : {token,{match,TokenLine}}.
+redo         : {token,{redo,TokenLine}}.
+
+
+% end pattern matching/inline fun expansion
+done        : {token,{done,TokenLine}}.
+end         : {token,{done,TokenLine}}.
+fin         : {token,{done,TokenLine}}.
 
 % types of things to deal with
 form      : {token,{vars_src,TokenLine,form}}.
@@ -45,14 +66,31 @@ are        : {token,{equals,TokenLine}}.
 =          : {token,{equals,TokenLine}}.
 come       : {token,{come,TokenLine}}.
 
+% data doers
+find          : {token,{find,TokenLine}}.
+all           : {token,{all,TokenLine}}.
+one           : {token,{one,TokenLine}}.
+get           : {token,{get,TokenLine}}.
+write         : {token,{write,TokenLine}}.
+update        : {token,{update,TokenLine}}.
+index         : {token,{index,TokenLine}}.
+
+% data modifiers
+set            : {token,{set,TokenLine}}.
+add            : {token,{add,TokenLine}}.
+clear          : {token,{clear,TokenLine}}.
+delete         : {token,{delete,TokenLine}}.
+
 % foruse
 for         : {token,{foruse,TokenLine}}.
 using       : {token,{foruse,TokenLine}}.
 having      : {token,{foruse,TokenLine}}.
 with        : {token,{foruse,TokenLine}}.
+by          : {token,{foruse,TokenLine}}.
 
 % external module resolving
 from        : {token,{from,TokenLine}}.
+in          : {token,{from,TokenLine}}.
 
 % conversion ops
 removing    : {token,{conversion_op,TokenLine,remove}}.
@@ -88,7 +126,9 @@ json     : {token,{json,TokenLine,list_to_atom(TokenChars)}}.
 term     : {token,{term,TokenLine,list_to_atom(TokenChars)}}.
 
 or     : {token,{union,TokenLine,list_to_atom(TokenChars)}}.
-and    : {token,{intersection,TokenLine,list_to_atom(TokenChars)}}.
+
+and    : {token,{intersect,TokenLine,list_to_atom(TokenChars)}}.
+then   : {token,{intersect,TokenLine,list_to_atom(TokenChars)}}.
 
 as     : {token,{as,TokenLine}}.
 :      : {token,{':',TokenLine}}.
@@ -98,6 +138,8 @@ as     : {token,{as,TokenLine}}.
 {C}    : {token,{comparator,TokenLine,list_to_atom(TokenChars)}}.
 
 {D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
+\-{D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
+\+{D}+   : {token,{integer,TokenLine,list_to_integer(TokenChars)}}.
 {FLOAT}+ : {token,{float,TokenLine,list_to_float(TokenChars)}}.
 
 '{ATOM}+ : S = build_atom(TokenChars,TokenLen),
@@ -105,11 +147,18 @@ as     : {token,{as,TokenLine}}.
 
 {DOUBLE_QUOTED} : S = build_string(TokenChars,TokenLen),
                   {token,{ustr,TokenLine,S}}.
+
+% Let's make '"Some string" =:= "Some string" and NOT "\"Some string\""
+'{DOUBLE_QUOTED} : S = build_string(tl(TokenChars),TokenLen - 1),
+                  {token,{ustr,TokenLine,S}}.
+
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 
-[(),]  : {token,{list_to_atom(TokenChars),TokenLine}}.
+[(),;]  : {token,{list_to_atom(TokenChars),TokenLine}}.
 ->     : {token,{'->', TokenLine}}.
+\\\n   : skip_token.  % don't report lines ending in slash (continue next line)
 {NL}   : {token,{'NL', TokenLine}}.
+\'     : {token,{quot, TokenLine}}. %' -- fix syntax highlighting again
 
 % skippable
 {COMMENT} : skip_token.
@@ -127,6 +176,7 @@ build_string(TokenChars,TokenLen) ->
 
 unescape_string(String) -> unescape_string(String, []).
 unescape_string([], Output) ->
+  % Note: don't flatten this list here.  Things will break.
   lists:reverse(Output);
 unescape_string([$\\, Escaped | Rest], Output) ->
   Char = case Escaped of

@@ -8,10 +8,9 @@
 compile({file, Filename}) ->
   {ok, Contents} = file:read_file(Filename),
   compile(Contents);
-compile(Module) when is_binary(Module) ->
-  compile(unicode:characters_to_list(Module));
-compile(Module) when is_list(Module) ->
-  {ok, Tokens, _} = zlang_lexer:string(Module),
+compile(Module) when is_list(Module) orelse is_binary(Module) ->
+  FixedModule = fixup_syntax(Module),
+  {ok, Tokens, _} = zlang_lexer:string(FixedModule),
   {ok, ParseTree} = zlang_parser:parse(Tokens),
   ParseTree.
 
@@ -19,6 +18,49 @@ source_to_binary(Module, Name) ->
   Compiled = compile(Module),
   Evald = mod(Compiled, Name),
   lfe_module_binary(iolist_to_binary(Evald)).
+
+fixup_syntax(Module) ->
+  % Fix end/done/fin newline requirements
+  ExpandedSemis = re:replace(Module, ";", "\n", [{return, list}, global]),
+  Fixed = fixup_matches(ExpandedSemis),
+  io:format("fixed: ~s~n", [Fixed]),
+  Fixed.
+
+% IMPROVEMENTS:
+% the in-match flag needs to be recursive.  Make it a count of the current
+% "in-match" depth.  If 0 == not in match, if > 0, in match.
+% ALSO -- retain a count of how many newlines were inserted so we can adjust
+% the parser error lines correctly by subtracting the number of inserted lines.
+fixup_matches(Module) ->
+  fixup_matches(re:split(Module, "([\n])", [{return, list}]), false, []).
+
+-define(DONE_REGEX, "\s+(end|done|fin)(\s)?$").
+fixup_matches([Line|Lines], false = _InMatchStmt, Acc) ->
+  case re:run(Line, "\s+match\s+") of
+    {match, _} -> case re:run(Line, ?DONE_REGEX) of % catch one-line match
+                    {match, _} -> fixup_matches(Lines, false, [Line | Acc]);
+                             _ -> fixup_matches(Lines, true, [Line | Acc])
+                  end;
+             _ -> fixup_matches(Lines, false, [Line | Acc])
+  end;
+fixup_matches([Line|Lines], true = _InMatchStmt, Acc) ->
+  case re:run(Line, ?DONE_REGEX) of
+    % NOTE: To add a newline BEFORE something, insert "\n" AFTER the line since
+    % we are building the list backwards.  It will get reverse/1'd at the end.
+    {match, _} -> case re:run(Line, "->") of  % If a one-line match, mv end
+                    {match, _} -> FixedLine = re:replace(Line, "end", ""),
+                                  fixup_matches(Lines, false,
+                                    ["end", "\n", "\n", FixedLine, "\n" | Acc]);
+                             _ -> fixup_matches(Lines, false,
+                                    [Line, "\n" | Acc])
+                   end;
+             _ -> case re:run(Line, "->") of
+                    {match, _} -> fixup_matches(Lines, true,
+                                    [Line, "\n" | Acc]);
+                             _ -> fixup_matches(Lines, true, [Line | Acc])
+                  end
+  end;
+fixup_matches([], _, Acc) -> unicode:characters_to_list(lists:reverse(Acc)).
 
 %%%----------------------------------------------------------------------
 %%% evaluate primary forms
@@ -42,7 +84,7 @@ site_macros() ->
   MacroBin.
 
 namespaces(InboundNamespaces) ->
-  Namespaces = [args([args([ato(Namespace)]), str(Value)]) ||
+  Namespaces = [args([args([ato(Namespace)]), bin(Value)]) ||
                 {Namespace, Value} <- InboundNamespaces],
   topcall(["defsyntax", "namespace" | Namespaces]).
 
@@ -62,20 +104,36 @@ combine_functions({function,
     _ -> [{managed_http_function,
            PrimaryRoute, [{Method, RestPath, Body}]} | Accum]
   end;
+combine_functions({function,
+                   {local_fun, Name, Args, Body}}, Accum) ->
+  case lists:keyfind(Name, 2, Accum) of
+    {Hdr, Name, Bodies} ->
+      % We're building the args/body backwards.  We should really reverse it.
+      NewFun = {Hdr, Name, [{Args, Body} | Bodies]},
+      lists:keyreplace(Name, 2, Accum, NewFun);
+    _ -> [{managed_local_fun,
+           Name, [{Args, Body}]} | Accum]
+  end;
 combine_functions(Other, Accum) ->
   [Other | Accum].
 
 
+% NB: we reverse the managed properties/bodies because we build them backwards
 stmt({managed_http_function, PrimaryRoute, SubProps}) ->
   ExpandedSubProps =
   [args([ato(Method), strargs(RestPath), "\n",
          http_body(Body, Method, RestPath)]) ||
-   {Method, RestPath, Body} <- SubProps],
+   {Method, RestPath, Body} <- lists:reverse(SubProps)],
   topcall(["create-http-function", PrimaryRoute, lst(ExpandedSubProps)]);
 stmt({function, {local_fun, Name, Body}}) ->
-  topcall(["local-function", Name, local_body(Body)]);
-stmt({function, {local_fun, Name, Args, Body}}) ->
-  topcall(["local-function", Name, args(Args), local_body(Body)]).
+  topcall(["local-function-noargs", Name, local_body(Name, Body)]);
+stmt({managed_local_fun, Name, ArgsBodies}) ->
+  ExpandedArgsBodies =
+  [args([args(Args), "\n", local_body(Name, Body)]) ||
+    {Args, Body} <- lists:reverse(ArgsBodies)],
+  topcall(["local-function", Name, lst(ExpandedArgsBodies)]).
+%stmt({function, {local_fun, Name, Args, Body}}) ->
+%  topcall(["local-function", Name, args(Args), local_body(Body)]).
 
 
 http_body([], _Method, _Path) -> [];
@@ -90,7 +148,9 @@ http_body([{vars, PullVarsFrom, Vars}|RestBody], Method, Path) ->
 http_body([{equality, _, _} = Equality|RestBody], Method, Path) ->
   equality(Equality, RestBody, fun(E) -> http_body(E, Method, Path) end);
 http_body([H|T], Method, Path) ->
-  [body(H) | http_body(T, Method, Path)].
+  [body(H) | http_body(T, Method, Path)];
+http_body(OneStmt, _, _) when is_tuple(OneStmt) ->
+  body(OneStmt).
 
 % If we have a list of one item, capture the list itself
 name_or_names(Names) ->
@@ -110,22 +170,42 @@ vars_web({default, WebName, Default}) -> tup([str(WebName), bin(Default)]);
 vars_web({alias, WebName, _LocalName}) -> str(WebName);
 vars_web(V) -> str(V).
 
-local_body([]) -> [];
-local_body([{equality, _, _} = Equality|RestBody]) ->
-  equality(Equality, RestBody, fun(E) -> local_body(E) end);
-local_body([H|T]) ->
-  [body(H) | local_body(T)].
+local_body(_, []) -> [];
+local_body(FunName, [{equality, _, _} = Equality|RestBody]) ->
+%  io:format("Processing local equality of: ~p~n", [Equality]),
+  equality(Equality, RestBody, fun(E) -> local_body(FunName, E) end);
+local_body(FunName, [{redo, Args}|RestBody]) ->
+  [body({redo, FunName, Args}) | local_body(FunName, RestBody)];
+local_body(FunName, [H|T]) ->
+  [body(H) | local_body(FunName, T)];
+local_body(_, OneStmt) when is_tuple(OneStmt) ->
+  body(OneStmt).
 
+
+%%%----------------------------------------------------------------------
+%%% equality = recurisve let
+%%%----------------------------------------------------------------------
+generate_from_source(SourceValue, NextFun) when is_tuple(SourceValue) ->
+  NextFun(SourceValue);
+generate_from_source(SourceValue, NextFun) when is_list(SourceValue) ->
+  alst([NextFun(E) || E <- SourceValue]).
+
+equality({equality, _, SourceValue}, [], NextFun) ->
+  % No RestBody, so just generate (no bind).
+  generate_from_source(SourceValue, NextFun);
 
 equality({equality, LocalNames, SourceValue}, RestBody, NextFun) ->
   UseLocalNames = name_or_names(LocalNames),
-  ResolvedSource = case SourceValue of
-                     S when is_tuple(S) -> body(S);
-                      S when is_list(S) -> [body(E) || E <- S]
-                   end,
+%  io:format("Equality with source value of: ~p~n", [SourceValue]),
+  ResolvedSource = generate_from_source(SourceValue, NextFun),
+%  io:format("Resolved source is: ~p [[(~s]] (for ~p)~n",
+%    [ResolvedSource, ResolvedSource, LocalNames]),
   expr(["local-bind", proper(UseLocalNames), ResolvedSource,
         lst(NextFun(RestBody))]).
 
+%%%----------------------------------------------------------------------
+%%% math doing
+%%%----------------------------------------------------------------------
 math_body([{math, Op, InnerRemaining} | More], Acc) ->
   math_body(More, [args(["math", Op, math_body(InnerRemaining, [])]) | Acc]);
 math_body([StringNumber | More], Acc) ->
@@ -133,11 +213,29 @@ math_body([StringNumber | More], Acc) ->
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
 
+%%%----------------------------------------------------------------------
+%%% body statements
+%%%----------------------------------------------------------------------
+body(N) when is_number(N) ->
+  proper(N);
+
+body({unique, big}) ->
+  args(["unique-big"]);
+
+body({unique, small}) ->
+  args(["unique-small"]);
+
+body({whisper, WhisperList}) ->
+  args(["whisper-logger", proper_proper_args(WhisperList)]);
+
 body({cxn, {_, Property}}) ->
   args(["cxn-property", bin(Property)]);
 
 body({user, {_, Property}}) ->
   args(["user-property", bin(Property)]);
+
+body({numbers,_} = N) ->
+  proper(N);
 
 body({str, _} = S) ->
   proper(S);
@@ -169,7 +267,74 @@ body({call, {var, Function}}) ->
   expr(["safe-call", Function]);
 
 body({call, {var, Function}, Args}) ->
-  expr(["safe-call", Function, arglist(lists:concat(Args))]).
+  expr(["safe-call", Function, arglist(lists:concat(Args))]);
+
+body({redo, FunName, Args}) ->
+  expr([FunName, proper_proper(Args)]);
+
+body({inline_fun, {against, {Args, LineNo}}, {stmts, Stmts}}) ->
+  % (create-letrec (name is AGAINST+line NO) (args..) (body...))
+  % Stmts are: [{args, Args}, {body, Body}]
+  StringArgs = [deproper(A) || A <- Args],
+  LocalMatcherName = lists:flatten(StringArgs) ++ "::" ++ LineNo,
+  expr(["local-matcher", LocalMatcherName,
+    proper_proper(Args),  % PROBABLY FAILS WITH MULTIARGS?
+    lst([inline_body(LocalMatcherName, S) || S <- Stmts])]);
+
+%% Data Statements (Write, Read, Get, Update)
+body({write, {type, Type}, {contents, Pairs}, {index, Indexes}}) ->
+  expr(["writer", proper(Type), alst(depair(Pairs)), alst(Indexes)]);
+
+body({find, all, Type, Pairs}) ->
+  expr(["finder-all", proper(Type), alst(depair(Pairs))]);
+
+body({find, all, Type, Pairs, using, IdxSpec}) ->
+  expr(["finder-all-idx", proper(Type), alst(depair(Pairs)),
+    alst(IdxSpec)]);
+
+body({find, one, Type, Pairs}) ->
+  expr(["finder-one", proper(Type), alst(depair(Pairs))]);
+
+body({get, var, Keys, TargetVar}) ->
+  expr(["getter", proper_proper(Keys), proper(TargetVar)]);
+
+body({get, proplist, _Keys, _Pairs}) -> [];
+
+body({update, {obj, BoundVar}, Mutations}) ->
+  ProperMutations = [mutation(M) || M <- Mutations],
+  expr(["updater-obj", proper(BoundVar), alst(ProperMutations)]);
+
+body({update, {find, Finder}, Mutations}) ->
+  ProperMutations = [mutation(M) || M <- Mutations],
+  expr(["updater-find", body(Finder), alst(ProperMutations)]).
+
+
+
+%%%----------------------------------------------------------------------
+%%% inline fun/matcher/letrec expansion
+%%%----------------------------------------------------------------------
+inline_body(FunName, {stmt, {args, Args}, {body, Body}}) ->
+  case close_reduction(Args) of
+          Args -> expr([lst(proper_proper(Args)), local_body(FunName, Body)]);
+    ClosedArgs ->
+      [expr([lst(proper_proper(ClosedArgs)), args([])]), % no body on no list
+       expr([lst(proper_proper(Args)), local_body(FunName, Body)])]
+   end.
+
+close_reduction([]) -> [];
+close_reduction([{first_rest, _, _} | T]) ->
+  [match_empty | close_reduction(T)];
+close_reduction([H|T]) ->
+  [H | close_reduction(T)].
+
+%%%----------------------------------------------------------------------
+%%% make proper lists (or not) out of proper things
+%%%----------------------------------------------------------------------
+proper_proper(Args) when is_list(Args) ->
+  alst([proper(A) || A <- Args]).
+
+proper_proper_args(Args) when is_list(Args) ->
+  lst([proper(A) || A <- Args]).
 
 %%%----------------------------------------------------------------------
 %%% num safety
@@ -180,6 +345,15 @@ num_safe(X) when is_list(X) ->
   catch
     _:_ -> list_to_float(X)
   end.
+
+%%%----------------------------------------------------------------------
+%%% mutation expanding
+%%%----------------------------------------------------------------------
+mutation({set, Pair})    -> tup({set, depair(Pair)});
+mutation({add, Pair})    -> tup({add, depair(Pair)});
+mutation({remove, Pair}) -> tup({remove, depair(Pair)});
+mutation({clear, Str})   -> tup({clear, proper(Str)});
+mutation({delete, Str})  -> tup({delete, proper(Str)}).
 
 %%%----------------------------------------------------------------------
 %%% applier expanding
@@ -227,9 +401,8 @@ fapplier(Args, Default) ->
 % Function of the applier for this lc
 lc_applier({convert, remove, What}) ->
   fnc("erlang", "iolist_to_binary", [
-    fnc("re", "replace", ["tvar", str(What), str([]), atolst(["global"])])
+    fnc("re", "replace", ["tvar", str(What), str([]), alst([ato("global")])])
   ]).
-
 
 
 %%%----------------------------------------------------------------------
@@ -265,14 +438,22 @@ a2l(X) when is_list(X) -> X.
 
 proper({var, Var}) when is_list(Var) -> Var;
 proper({str, Str}) when is_list(Str) -> bin(Str);
+proper(Number) when is_number(Number) -> bin(Number);
+proper({numbers, Numbers}) when is_list(Numbers) -> [bin(N) || N <- Numbers];
+proper({first_rest, {submatched, First}, Rest}) ->
+  args([proper_proper(First), ".", proper(Rest)]);
+proper({first_rest, First, Rest}) -> args([proper(First), ".", proper(Rest)]);
+proper(match_empty) -> args([]);
 proper(Other) -> Other.
+
+deproper({_, Any}) -> Any.
 
 str({local_bind, Name}) -> Name;  % inject a top-level var here. nostr.
 str(E) -> ["'\"", a2l(E), "\""].
 
 flatstr(E) -> ["\"", a2l(E), "\""].
 
-bin(B) when is_list(B) -> ["#b", lst(flatstr(B)), " "];
+bin(B) when is_list(B) orelse is_number(B) -> ["#b", lst(flatstr(B)), " "];
 bin({str, Str}) when is_list(Str) -> bin(Str).
 
 ato(A) when is_list(A) -> ["\'", A];
@@ -284,6 +465,11 @@ tup(T) when is_tuple(T) ->
   args(["tuple" | tuple_to_list(T)]);
 tup(T) when is_list(T) ->
   args(["tuple" | T]).
+
+depair(Pair) when is_tuple(Pair) ->
+  body(Pair);
+depair(Pairs) when is_list(Pairs) ->
+  [body(P) || P <- Pairs].
 
 lst(E) -> ["(", E, ") "].
 
@@ -344,6 +530,9 @@ lfe_module(Contents, Args) ->
 
 load_lfe(Name, Contents) ->
   LfeBinary = lfe_module_binary(Contents),
+  load_lfe_binary(Name, LfeBinary).
+
+load_lfe_binary(Name, LfeBinary) ->
   code:purge(Name),
   code:delete(Name),
   code:load_binary(Name, "lfe_binary_module", LfeBinary).
