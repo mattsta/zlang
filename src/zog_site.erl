@@ -270,7 +270,7 @@ body({call, {var, Function}, Args}) ->
   expr(["safe-call", Function, arglist(lists:concat(Args))]);
 
 body({redo, FunName, Args}) ->
-  expr([FunName, proper_proper(Args)]);
+  expr(["safe-redo", FunName, proper_proper(Args)]);
 
 body({inline_fun, {against, {Args, LineNo}}, {stmts, Stmts}}) ->
   % (create-letrec (name is AGAINST+line NO) (args..) (body...))

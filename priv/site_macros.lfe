@@ -99,6 +99,10 @@
  ([func]      `(,func ,(cxn-arg)))
  ([func args] `(,func ,@(append-cxn-arg-to args))))
 
+(defmacro safe-redo
+ ([func]      `(,func))
+ ([func args] `(,func ,args)))
+
 ;;;------------------------------------------------------------------+
 ;;; Math (potentially pre-computable if no vars...)
 ;;;------------------------------------------------------------------+
@@ -261,9 +265,15 @@
  ([keys dict] (when (is_list keys))
   (lc ((<- k keys)) (dict-find k dict))))
 
+;;;------------------------------------------------------------------+
+;;; Logging
+;;;------------------------------------------------------------------+
 (defmacro whisper-logger (args)
  `(: whisper say ,(namespace site) 'poopie 'poopin (list ,@args)))
 
+;;;------------------------------------------------------------------+
+;;; Uniquers
+;;;------------------------------------------------------------------+
 (defmacro binhex (what)
  `(list_to_binary (: mochihex to_hex ,what)))
 
