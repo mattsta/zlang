@@ -294,6 +294,20 @@
   (lc ((<- k keys)) (dict-find k dict))))
 
 ;;;------------------------------------------------------------------+
+;;; Async
+;;;------------------------------------------------------------------+
+(defmacro async (statements)
+ `(: zog_sg required (lambda () ,@statements)))
+
+; for waiting, we need to get the return value from each zog_sg call, make
+; a list out of all of them, then call zog_sg gather with the list of refs
+; returned from all the zog_sg:required calls.
+(defmacro async-wait (list-of-async-statements)
+ (let ((async-refs (lc ((<- stmt list-of-async-statements)) stmt)))
+   `(: zog_sg gather (list ,@async-refs) '())))
+
+
+;;;------------------------------------------------------------------+
 ;;; Logging
 ;;;------------------------------------------------------------------+
 (defmacro whisper-logger (args)

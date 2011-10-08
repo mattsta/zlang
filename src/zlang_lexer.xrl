@@ -21,6 +21,10 @@ Rules.
 % HTTP methods
 {METHOD}    : {token, {http_method, TokenLine, TokenChars}}.
 
+% async
+async      : {token,{async,TokenLine}}.
+wait       : {token,{wait,TokenLine}}.
+
 % unique things
 unique      : {token,{unique,TokenLine}}.
 

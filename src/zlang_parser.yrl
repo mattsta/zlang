@@ -26,6 +26,7 @@ Unique
 StoreDelim Storage TemporalUnit Term
 GlobalActor AnyName AnyArg
 AnyArgN AnyListN AnyNameN AnySubMatcher
+Async
 .
 
 
@@ -43,7 +44,7 @@ float as default ustr
 all find one get write
 add remove clear delete update
 index quot done match redo
-unique big small
+unique big small async wait
 atom var integer string set union intersect comparator uterm.
 
 %%%----------------------------------------------------------------------
@@ -120,6 +121,15 @@ FunctionRunnable -> InlineFun          : '$1'.
 FunctionRunnable -> Redo               : '$1'.
 FunctionRunnable -> Logging            : '$1'.
 FunctionRunnable -> Unique             : '$1'.
+FunctionRunnable -> Async              : '$1'.
+
+%%%----------------------------------------------------------------------
+%%% Async
+%%%----------------------------------------------------------------------
+Async -> async FunctionRunnable : {async, nowait, ['$2']}.
+Async -> async 'NL' FunctionStatements done : {async, nowait, '$3'}.
+Async -> async 'NL' FunctionStatements wait done : {async, wait, '$3'}.
+Async -> async 'NL' FunctionStatements wait foruse done : {async, wait, '$3'}.
 
 %%%----------------------------------------------------------------------
 %%% Uniqueness
@@ -414,11 +424,3 @@ lineno({_,L}) -> integer_to_list(L).
 
 delist([A]) -> A;
 delist(Other) -> Other.
-
-a2l(X) when is_atom(X) -> atom_to_list(X);
-a2l(X) when is_list(X) andalso is_list(hd(X)) -> X;
-a2l(X) when is_float(X) -> mochinum:digits(X);
-a2l(X) when is_integer(X) -> integer_to_list(X);
-a2l(X) when is_list(X) -> X.
-
-a2b(X) -> list_to_binary(a2l(X)).

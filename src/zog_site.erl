@@ -176,11 +176,22 @@ local_body(FunName, [{equality, _, _} = Equality|RestBody]) ->
   equality(Equality, RestBody, fun(E) -> local_body(FunName, E) end);
 local_body(FunName, [{redo, Args}|RestBody]) ->
   [body({redo, FunName, Args}) | local_body(FunName, RestBody)];
+local_body(FunName, [{async, nowait, Stmts}|RestBody]) ->
+  [async_local_body(FunName, Stmts) | local_body(FunName, RestBody)];
+local_body(FunName, [{async, wait, Stmts}|RestBody]) ->
+  [async_wait_local_body(FunName, Stmts) | local_body(FunName, RestBody)];
 local_body(FunName, [H|T]) ->
   [body(H) | local_body(FunName, T)];
 local_body(_, OneStmt) when is_tuple(OneStmt) ->
   body(OneStmt).
 
+async_local_body(_, []) -> [];
+async_local_body(FunName, [H|T]) ->
+  [expr(["async", lst(local_body(FunName, [H]))]) |
+     async_local_body(FunName, T)].
+
+async_wait_local_body(FunName, Stmts) ->
+  expr(["async-wait", lst(async_local_body(FunName, Stmts))]).
 
 %%%----------------------------------------------------------------------
 %%% equality = recurisve let
