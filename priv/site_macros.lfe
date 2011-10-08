@@ -199,12 +199,18 @@
  ([() type _ all-idx]
   (: car index_bind (++ (meta-idx-fields type) all-idx))))
 
+(defun binary-join-car-delim (bins)
+ (binary-join-delim #b(":_:") bins))
+
+(defun binary-join-space-delim (bins)
+ (binary-join-delim #b(" ") bins))
+
 (defun binary-join-delim
- ([(bin . bins)]
+ ([delim (bin . bins)]
   ; This is: iolist_to_binary([H, [<<":_:", B/binary>> || B <- T]]).
   (iolist_to_binary
    (list bin
-    (lc ((<- b bins)) (binary (#b(":_:") binary) (b binary))))))) 
+    (lc ((<- b bins)) (binary (delim binary) (b binary)))))))
 
 (defun de-hash-finds (objs)
  ; covert {Hash, Obj} to Hash as a member of the orddict Obj.
@@ -220,15 +226,15 @@
  `(let* (((tuple keys values) (: lists unzip ,pairs)))
    (de-hash-finds
     (: car objects_by_index
-     (idx-key ,type (binary-join-delim keys))
-      (binary-join-delim values)))))
+     (idx-key ,type (binary-join-car-delim keys))
+      (binary-join-car-delim values)))))
 
 (defmacro finder-all-idx (type pairs index-spec)
  `(let* (((tuple _ values) (: lists unzip ,pairs)))
    (de-hash-finds
     (: car objects_by_index
-     (idx-key ,type (binary-join-delim ,index-spec))
-      (binary-join-delim values)))))
+     (idx-key ,type (binary-join-car-delim ,index-spec))
+      (binary-join-car-delim values)))))
 
 (defmacro finder-one (type pairs) 'ok)
  ; pull finder-all, but if result list > 1, whisper error "multiple returns."
@@ -291,11 +297,12 @@
 ;;; Logging
 ;;;------------------------------------------------------------------+
 (defmacro whisper-logger (args)
- `(: whisper say ,(namespace site) 'poopie 'poopin (list ,@args '"\n")))
+ `(: whisper say ,(namespace site) 'poopie 'poopin
+   (binary-join-space-delim (list ,@args #b("\n")))))
 
 (defun whisper-maxcount (place)
- (whisper-logger ('"reached max recursive count in function "
-  (atom_to_list place))))
+ (whisper-logger (#b("reached max recursive count in function")
+  (list_to_binary (atom_to_list place)))))
 
 ;;;------------------------------------------------------------------+
 ;;; Uniquers
