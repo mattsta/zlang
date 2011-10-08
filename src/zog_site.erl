@@ -339,12 +339,16 @@ proper_proper_args(Args) when is_list(Args) ->
 %%%----------------------------------------------------------------------
 %%% num safety
 %%%----------------------------------------------------------------------
+num_safe(X) when is_binary(X) ->
+  num_safe(binary_to_list(X));
 num_safe(X) when is_list(X) ->
   try
     list_to_integer(X)
   catch
     _:_ -> list_to_float(X)
-  end.
+  end;
+num_safe(X) when is_tuple(X) -> X;
+num_safe(X) when is_number(X) -> X.
 
 %%%----------------------------------------------------------------------
 %%% mutation expanding
@@ -434,7 +438,10 @@ a2l(X) when is_atom(X) -> atom_to_list(X);
 a2l(X) when is_list(X) andalso is_list(hd(X)) -> X;
 a2l(X) when is_float(X) -> mochinum:digits(X);
 a2l(X) when is_integer(X) -> integer_to_list(X);
+a2l(X) when is_binary(X) -> binary_to_list(X);
 a2l(X) when is_list(X) -> X.
+
+a2b(X) -> list_to_binary(a2l(X)).
 
 proper({var, Var}) when is_list(Var) -> Var;
 proper({str, Str}) when is_list(Str) -> bin(Str);
@@ -453,6 +460,7 @@ str(E) -> ["'\"", a2l(E), "\""].
 
 flatstr(E) -> ["\"", a2l(E), "\""].
 
+bin(B) when is_binary(B) -> B;
 bin(B) when is_list(B) orelse is_number(B) -> ["#b", lst(flatstr(B)), " "];
 bin({str, Str}) when is_list(Str) -> bin(Str).
 

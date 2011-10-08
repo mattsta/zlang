@@ -259,7 +259,7 @@ ApplierType -> foruse Name conversion_op Names intersect pair names ',' values :
 % *because* '/' is already a top level token for URL naming.
 MathApplier -> math MathTerms ')' : {math, unwrap('$1'), '$2'}.
 
-MathTerms -> Name : ['$1'].          % we can do math on varialbes
+MathTerms -> Name : ['$1'].          % we can do math on variables
 MathTerms -> Number : ['$1'].        % and numbers
 MathTerms -> MathApplier : ['$1'].   % and other maths
 MathTerms -> Name MathTerms : ['$1'] ++ '$2'.   % and variables with other terms
@@ -414,3 +414,11 @@ lineno({_,L}) -> integer_to_list(L).
 
 delist([A]) -> A;
 delist(Other) -> Other.
+
+a2l(X) when is_atom(X) -> atom_to_list(X);
+a2l(X) when is_list(X) andalso is_list(hd(X)) -> X;
+a2l(X) when is_float(X) -> mochinum:digits(X);
+a2l(X) when is_integer(X) -> integer_to_list(X);
+a2l(X) when is_list(X) -> X.
+
+a2b(X) -> list_to_binary(a2l(X)).

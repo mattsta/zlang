@@ -96,17 +96,36 @@
  ([mod func args] `(: ,mod ,func ,@args)))
 
 (defmacro safe-call
- ([func]      `(,func ,(cxn-arg)))
- ([func args] `(,func ,@(append-cxn-arg-to args))))
+ ([func]      `(count-then ,func 100 (,func ,(cxn-arg))))
+ ([func args] `(count-then ,func 100 (,func ,@(append-cxn-arg-to args)))))
 
 (defmacro safe-redo
- ([func]      `(,func))
- ([func args] `(,func ,args)))
+ ([func]      `(count-then ,func 100 (,func)))
+ ([func args] `(count-then ,func 100 (,func ,args))))
+
+(defmacro count-then (count-key max-count then)
+ `(let ((retval (run-count-then ,count-key ,max-count ,then)))
+   (put ',count-key 'undefined)
+   retval))
+
+(defmacro run-count-then (count-key max-count then)
+ `(case (get ',count-key)
+   ('undefined (progn
+                (put ',count-key 1)
+                ,then))
+   (x (when (=< x ,max-count)) (progn
+                                (put ',count-key (+ x 1))
+                                ,then))
+   (higher-than-max-count
+    (whisper-maxcount ',count-key))))
 
 ;;;------------------------------------------------------------------+
 ;;; Math (potentially pre-computable if no vars...)
 ;;;------------------------------------------------------------------+
-(defmacro math
+(defmacro math (op vals)
+ `(: zog_site a2b (do-math ,op ,(lc ((<- v vals)) `(: zog_site num_safe ,v)))))
+
+(defmacro do-math
  (['% vals] `(rem ,@vals))
  (['+ vals] `(+ ,@vals))
  (['- vals] `(- ,@vals))
@@ -241,6 +260,9 @@
  `(: car update_object (extract-obj-hash ,update-obj)
    ,(lc ((<- m mutations)) `(convert-mutation ,m))))
 
+(defmacro spawn-updater-obj (update-obj mutations)
+ `(spawn (lambda () (updater-obj ,update-obj ,mutations))))
+
 (defmacro updater-find (find-spec mutations)
  'ok)
 
@@ -269,7 +291,11 @@
 ;;; Logging
 ;;;------------------------------------------------------------------+
 (defmacro whisper-logger (args)
- `(: whisper say ,(namespace site) 'poopie 'poopin (list ,@args)))
+ `(: whisper say ,(namespace site) 'poopie 'poopin (list ,@args '"\n")))
+
+(defun whisper-maxcount (place)
+ (whisper-logger ('"reached max recursive count in function "
+  (atom_to_list place))))
 
 ;;;------------------------------------------------------------------+
 ;;; Uniquers
