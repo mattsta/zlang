@@ -166,6 +166,7 @@ as     : {token,{as,TokenLine}}.
 '{DOUBLE_QUOTED} : S = build_string(tl(TokenChars),TokenLen - 1),
                   {token,{ustr,TokenLine,S}}.
 
+={SL}+  : {token,{uterm,TokenLine,tl(TokenChars)}}.
 {SL}+   : {token,{uterm,TokenLine,TokenChars}}.
 
 [(),;]  : {token,{list_to_atom(TokenChars),TokenLine}}.
