@@ -21,6 +21,9 @@ Rules.
 % HTTP methods
 {METHOD}    : {token, {http_method, TokenLine, TokenChars}}.
 
+% simple comprehensions
+over      : {token,{over,TokenLine}}.
+
 % async
 async      : {token,{async,TokenLine}}.
 wait       : {token,{wait,TokenLine}}.
@@ -37,6 +40,13 @@ short       : {token,{small,TokenLine}}.
 % logging
 whisper     : {token,{whisper,TokenLine}}.
 say         : {token,{whisper,TokenLine}}.
+good         : {token,{good,TokenLine}}.
+pass         : {token,{good,TokenLine}}.
+bueno        : {token,{good,TokenLine}}.
+bad          : {token,{bad,TokenLine}}.
+fail         : {token,{bad,TokenLine}}.
+mal          : {token,{bad,TokenLine}}.
+malo         : {token,{bad,TokenLine}}.
 
 % keywords
 use         : {token,{use,TokenLine}}.

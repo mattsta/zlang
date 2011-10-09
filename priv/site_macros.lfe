@@ -105,7 +105,7 @@
 
 (defmacro count-then (count-key max-count then)
  `(let ((retval (run-count-then ,count-key ,max-count ,then)))
-   (put ',count-key 'undefined)
+;   (put ',count-key 'undefined)
    retval))
 
 (defmacro run-count-then (count-key max-count then)
@@ -210,7 +210,7 @@
   ; This is: iolist_to_binary([H, [<<":_:", B/binary>> || B <- T]]).
   (iolist_to_binary
    (list bin
-    (lc ((<- b bins)) (binary (delim binary) (b binary)))))))
+    (lc ((<- b bins) (=/= b '())) (binary (delim binary) (b binary)))))))
 
 (defun de-hash-finds (objs)
  ; covert {Hash, Obj} to Hash as a member of the orddict Obj.
@@ -299,23 +299,41 @@
 (defmacro async (statements)
  `(: zog_sg required (lambda () ,@statements)))
 
+(defun safe-extracting-keyfind (find in-list default)
+ (case (: lists keyfind find 1 in-list)
+  ('false default)
+  (other (element 2 other))))  ; keyfind returns the found *tuple* not value
+
 ; for waiting, we need to get the return value from each zog_sg call, make
 ; a list out of all of them, then call zog_sg gather with the list of refs
 ; returned from all the zog_sg:required calls.
 (defmacro async-wait (list-of-async-statements)
  (let ((async-refs (lc ((<- stmt list-of-async-statements)) stmt)))
-   `(: zog_sg gather (list ,@async-refs) '())))
+  `(let* ((ran-refs (list ,@async-refs))
+          (total-async-results (: zog_sg gather ran-refs '()))
+          ((tuple 'complete _ results duration-ms) total-async-results))
+    (lc ((<- ref ran-refs))
+     (safe-extracting-keyfind ref results #b("no return"))))))
 
 
 ;;;------------------------------------------------------------------+
 ;;; Logging
 ;;;------------------------------------------------------------------+
+(defmacro whisper-logger-good (args)
+ `(whisper-logger (#b("GOOD") ,@args)))
+
+(defmacro whisper-logger-bad (args)
+ `(whisper-logger (#b("BAD") ,@args)))
+
 (defmacro whisper-logger (args)
- `(: whisper say ,(namespace site) 'poopie 'poopin
-   (binary-join-space-delim (list ,@args #b("\n")))))
+ `(progn
+   (: whisper say ,(namespace site) 'poopie 'poopin
+    (binary-join-space-delim (list ,@args #b("\n"))))))
+; maybe one day all our functions can accept error arguments for self-reporting:
+;   (list #b("__zog_err") #b("called too many times"))))
 
 (defun whisper-maxcount (place)
- (whisper-logger (#b("reached max recursive count in function")
+ (whisper-logger (#b("reached recursion limit for")
   (list_to_binary (atom_to_list place)))))
 
 ;;;------------------------------------------------------------------+

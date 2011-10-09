@@ -117,7 +117,6 @@ combine_functions({function,
 combine_functions(Other, Accum) ->
   [Other | Accum].
 
-
 % NB: we reverse the managed properties/bodies because we build them backwards
 stmt({managed_http_function, PrimaryRoute, SubProps}) ->
   ExpandedSubProps =
@@ -182,12 +181,12 @@ local_body(FunName, [{async, wait, Stmts}|RestBody]) ->
   [async_wait_local_body(FunName, Stmts) | local_body(FunName, RestBody)];
 local_body(FunName, [H|T]) ->
   [body(H) | local_body(FunName, T)];
-local_body(_, OneStmt) when is_tuple(OneStmt) ->
-  body(OneStmt).
+local_body(FunName, OneStmt) when is_tuple(OneStmt) ->
+  local_body(FunName, [OneStmt]).
 
 async_local_body(_, []) -> [];
 async_local_body(FunName, [H|T]) ->
-  [expr(["async", lst(local_body(FunName, [H]))]) |
+  [expr(["async", lst(local_body(FunName, H))]) |
      async_local_body(FunName, T)].
 
 async_wait_local_body(FunName, Stmts) ->
@@ -220,13 +219,16 @@ equality({equality, LocalNames, SourceValue}, RestBody, NextFun) ->
 math_body([{math, Op, InnerRemaining} | More], Acc) ->
   math_body(More, [args(["math", Op, math_body(InnerRemaining, [])]) | Acc]);
 math_body([StringNumber | More], Acc) ->
-  math_body(More, [StringNumber | Acc]);
+  math_body(More, [proper(StringNumber) | Acc]);
 math_body([], Acc) -> args(lists:reverse(Acc)).
 
 
 %%%----------------------------------------------------------------------
 %%% body statements
 %%%----------------------------------------------------------------------
+body({over, Var, LocalVar, Stmt}) ->
+  lc(proper(LocalVar), proper(Var), body(Stmt));
+
 body(N) when is_number(N) ->
   proper(N);
 
@@ -236,6 +238,10 @@ body({unique, big}) ->
 body({unique, small}) ->
   args(["unique-small"]);
 
+body({whisper, good, WhisperList}) ->
+  args(["whisper-logger-good", proper_proper_args(WhisperList)]);
+body({whisper, bad, WhisperList}) ->
+  args(["whisper-logger-bad", proper_proper_args(WhisperList)]);
 body({whisper, WhisperList}) ->
   args(["whisper-logger", proper_proper_args(WhisperList)]);
 
@@ -352,14 +358,15 @@ proper_proper_args(Args) when is_list(Args) ->
 %%%----------------------------------------------------------------------
 num_safe(X) when is_binary(X) ->
   num_safe(binary_to_list(X));
-num_safe(X) when is_list(X) ->
+num_safe(X) when is_list(X) andalso not is_binary(hd(X)) ->
   try
     list_to_integer(X)
   catch
     _:_ -> list_to_float(X)
   end;
 num_safe(X) when is_tuple(X) -> X;
-num_safe(X) when is_number(X) -> X.
+num_safe(X) when is_number(X) -> X;
+num_safe(ok) -> [].  % hack to get around fib recursion limit throwing nomatch
 
 %%%----------------------------------------------------------------------
 %%% mutation expanding
@@ -380,12 +387,14 @@ expand_appliers(Args) ->
   InlineExpanded = expand_inline_appliers(Args),
   expand_full_applier(InlineExpanded).
 
-expand_inline_appliers(Stuff) ->
+expand_inline_appliers(Stuff) when is_list(Stuff) ->
   expand_inline_appliers(Stuff, []).
+
 expand_inline_appliers([], Accum) -> lists:reverse(Accum);
 expand_inline_appliers([{applier, Applier}|T], Accum) ->
   Resolved =
   case Applier of
+    {math, _, _} = Math -> body(Math);
     {"meta", Module} -> args(["run-with-mod", Module]);
     {using, vars, remove, Members, Then} ->
       case Then of
@@ -442,7 +451,7 @@ expr(Args) ->
   ["\n", "\t", args(Args), "\n"].
 
 lc(Target, From, DoWhat) ->
-  args(["lc", args(["<-", Target, From]), DoWhat]).
+  args(["lc", lst(args(["<-", Target, From])), DoWhat]).
 
 a2l({var, Var}) when is_list(Var) -> Var;
 a2l(X) when is_atom(X) -> atom_to_list(X);

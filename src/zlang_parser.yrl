@@ -7,6 +7,7 @@ Function
 FunctionBody
 FunctionStatements FunctionStatement FunctionRunnable
 FunctionName HttpFunctionName
+HttpRight LocalRight
 HttpFunctionBody
 HttpFunctionStatements HttpFunctionStatement HttpRunnable
 InternalCall ExternalCall ArgName ArgNames ArgNamesArgs
@@ -26,7 +27,7 @@ Unique
 StoreDelim Storage TemporalUnit Term
 GlobalActor AnyName AnyArg
 AnyArgN AnyListN AnyNameN AnySubMatcher
-Async
+Async Over
 .
 
 
@@ -44,7 +45,8 @@ float as default ustr
 all find one get write
 add remove clear delete update
 index quot done match redo
-unique big small async wait
+unique big small async wait over
+good bad
 atom var integer string set union intersect comparator uterm.
 
 %%%----------------------------------------------------------------------
@@ -72,14 +74,20 @@ Statement -> Function : {function, '$1'}.
 %%%----------------------------------------------------------------------
 %%% Function Heads
 %%%----------------------------------------------------------------------
-Function -> http_method HttpFunctionName '->' NLEater HttpFunctionBody :
-    {http, unwrap('$1'), '$2', '$5'}.
-Function -> HttpFunctionName '->' NLEater HttpFunctionBody :
-    {http, '$1', '$4'}.
-Function -> FunctionName '->' NLEater FunctionBody :
-    {local_fun, '$1', '$4'}.
-Function -> FunctionName ForUseArgs '->' NLEater FunctionBody :
-    {local_fun, '$1', '$2', '$5'}.
+Function -> http_method HttpFunctionName '->' HttpRight :
+    {http, unwrap('$1'), '$2', '$4'}.
+Function -> HttpFunctionName '->' HttpRight :
+    {http, '$1', '$3'}.
+Function -> FunctionName '->' LocalRight :
+    {local_fun, '$1', '$3'}.
+Function -> FunctionName ForUseArgs '->' LocalRight :
+    {local_fun, '$1', '$2', '$4'}.
+
+HttpRight -> NLEater HttpFunctionBody : '$2'.
+HttpRight -> HttpFunctionBody : '$1'.
+
+LocalRight -> NLEater FunctionBody : '$2'.
+LocalRight -> FunctionBody : '$1'.
 
 HttpFunctionName -> '/' Name : ['$2'].
 HttpFunctionName -> '/' ':' Name ':' : [{local_bind, '$3'}].
@@ -109,7 +117,7 @@ FunctionStatement -> FunctionRunnable 'NL' : '$1'.
 
 FunctionRunnable -> Delivery           : '$1'.
 FunctionRunnable -> InlineApplier      : '$1'.
-FunctionRunnable -> AnyName            : '$1'.
+FunctionRunnable -> AnyNameN           : '$1'.
 FunctionRunnable -> Find               : '$1'.
 FunctionRunnable -> Write              : '$1'.
 FunctionRunnable -> Get                : '$1'.
@@ -122,6 +130,13 @@ FunctionRunnable -> Redo               : '$1'.
 FunctionRunnable -> Logging            : '$1'.
 FunctionRunnable -> Unique             : '$1'.
 FunctionRunnable -> Async              : '$1'.
+FunctionRunnable -> Over               : '$1'.
+
+%%%----------------------------------------------------------------------
+%%% Inline comprehensions
+%%%----------------------------------------------------------------------
+Over -> over AnyName as Name FunctionRunnable  : {over, '$2', '$4', '$5'}.
+Over -> over AnyName Name FunctionRunnable  : {over, '$2', '$3', '$4'}.
 
 %%%----------------------------------------------------------------------
 %%% Async
@@ -140,7 +155,9 @@ Unique -> unique small     : {unique, small}.
 %%%----------------------------------------------------------------------
 %%% Logging
 %%%----------------------------------------------------------------------
-Logging -> whisper AnyListN : {whisper, '$2'}.
+Logging -> whisper AnyListN      : {whisper, '$2'}.
+Logging -> whisper good AnyListN : {whisper, good, '$3'}.
+Logging -> whisper bad AnyListN  : {whisper, bad, '$3'}.
 
 %%%----------------------------------------------------------------------
 %%% Setting / Equality
@@ -157,6 +174,8 @@ Equality -> Names equals AnyList          : {equality, '$1', delist('$3')}.
 Equality -> Names equals InlineFun        : {equality, '$1', '$3'}.
 Equality -> Names equals Numbers          : {equality, '$1', {numbers, '$3'}}.
 Equality -> Names equals Unique           : {equality, '$1', '$3'}.
+Equality -> Names equals Async            : {equality, '$1', '$3'}.
+Equality -> Names equals Over             : {equality, '$1', '$3'}.
 
 Pair -> '(' pair AnyNameN AnyNameN ')' : {pair, '$3', '$4'}.
 Pair -> '(' AnyNameN AnyNameN ')'      : {pair, '$2', '$3'}.
@@ -301,6 +320,7 @@ ForUse -> foruse 'NL' ArgNames : ['$3'].
 %%%----------------------------------------------------------------------
 ArgName -> Name : '$1'.
 ArgName -> Str  : '$1'.
+ArgName -> Number : '$1'.
 ArgName -> Name as Name : {alias, '$1', '$3'}.
 ArgName -> Name default AnyName : {default, '$1', '$3'}.
 ArgName -> Name as Name default Name : {alias, '$1', '$3', default, '$5'}.
