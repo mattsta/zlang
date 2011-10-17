@@ -14,7 +14,7 @@ compile(Module) when is_list(Module) orelse is_binary(Module) ->
   {ok, ParseTree} = zlang_parser:parse(Tokens),
   ParseTree.
 
-source_to_binary(Module, Name) ->
+source_to_binary(Module, Name) when is_list(Name) ->
   Compiled = compile(Module),
   Evald = mod(Compiled, Name),
   lfe_module_binary(iolist_to_binary(Evald)).
