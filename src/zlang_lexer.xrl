@@ -4,7 +4,7 @@ D        = [0-9]
 FLOAT    = [0-9\.]
 METHOD   = (OPTIONS|GET|HEAD|POST|PUT|DELETE|TRACE|CONNECT)
 L        = [A-Za-z]
-SL       = [A-Za-z0-9-_\\]
+SL       = [A-Za-z0-9-\?\$\&\@\+_\\]
 % The newline in WS captures newlines in comments.  comment char is ; to EOL
 WS       = [\s\t\f]
 COMMENT  = #.*\n?
@@ -19,6 +19,9 @@ DOUBLE_QUOTED = "(\\\^.|\\.|[^\"])*"
 Rules.
 
 % HTTP methods
+import      : {token,{import,TokenLine}}.
+
+% HTTP methods
 {METHOD}    : {token, {http_method, TokenLine, TokenChars}}.
 
 % simple comprehensions
@@ -27,6 +30,10 @@ over      : {token,{over,TokenLine}}.
 % async
 async      : {token,{async,TokenLine}}.
 wait       : {token,{wait,TokenLine}}.
+
+% run a no-arg function
+do          : {token,{do,TokenLine}}.
+run         : {token,{do,TokenLine}}.
 
 % unique things
 unique      : {token,{unique,TokenLine}}.
@@ -49,7 +56,6 @@ mal          : {token,{bad,TokenLine}}.
 malo         : {token,{bad,TokenLine}}.
 
 % keywords
-use         : {token,{use,TokenLine}}.
 variable    : {token,{vars,TokenLine}}.
 var         : {token,{vars,TokenLine}}.
 variables   : {token,{vars,TokenLine}}.
@@ -102,7 +108,7 @@ having      : {token,{foruse,TokenLine}}.
 with        : {token,{foruse,TokenLine}}.
 by          : {token,{foruse,TokenLine}}.
 
-% external module resolving
+% external module resolving and property getting
 from        : {token,{from,TokenLine}}.
 in          : {token,{from,TokenLine}}.
 

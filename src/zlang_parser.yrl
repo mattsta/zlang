@@ -10,7 +10,7 @@ FunctionName HttpFunctionName
 HttpRight LocalRight
 HttpFunctionBody
 HttpFunctionStatements HttpFunctionStatement HttpRunnable
-InternalCall ExternalCall ArgName ArgNames ArgNamesArgs
+InternalCall ArgName ArgNames ArgNamesArgs
 Names Name NameStr
 SpacedNames
 ForUse ForUseArgs ForUseArgsArgs
@@ -23,11 +23,12 @@ Str AnyList
 Logging
 Find Write Get WriteIndex
 Update UpdateAction UpdateActions
-Unique
+Unique ExternalFunctionBinding
+ExternalFunctionBindingBody ExternalFunction
 StoreDelim Storage TemporalUnit Term
 GlobalActor AnyName AnyArg
 AnyArgN AnyListN AnyNameN AnySubMatcher
-Async Over
+Async AsyncWait Over
 .
 
 
@@ -36,7 +37,7 @@ http_method
 slash using
 vars
 math cxn user whisper
-use form cookie cookies and fields are come from is
+form cookie cookies and fields are come from is
 convert conversion_op
 pair combine for names values
 a within in events last the window day hour minute
@@ -46,7 +47,8 @@ all find one get write
 add remove clear delete update
 index quot done match redo
 unique big small async wait over
-good bad
+good bad import
+do
 atom var integer string set union intersect comparator uterm.
 
 %%%----------------------------------------------------------------------
@@ -70,6 +72,8 @@ Statements -> Statement : ['$1'].
 Statements -> Statement Statements : ['$1'] ++ '$2'.
 
 Statement -> Function : {function, '$1'}.
+Statement -> ExternalFunctionBinding NLEater :
+    {binding, '$1'}.
 
 %%%----------------------------------------------------------------------
 %%% Function Heads
@@ -123,7 +127,6 @@ FunctionRunnable -> Write              : '$1'.
 FunctionRunnable -> Get                : '$1'.
 FunctionRunnable -> Update             : '$1'.
 FunctionRunnable -> Equality           : '$1'.
-FunctionRunnable -> ExternalCall       : '$1'.
 FunctionRunnable -> InternalCall       : '$1'.
 FunctionRunnable -> InlineFun          : '$1'.
 FunctionRunnable -> Redo               : '$1'.
@@ -141,10 +144,13 @@ Over -> over AnyName Name FunctionRunnable  : {over, '$2', '$3', '$4'}.
 %%%----------------------------------------------------------------------
 %%% Async
 %%%----------------------------------------------------------------------
+% One day: add adjustable timeouts for waiting.  Right now the default
+% timeout value from zog_sg is used for waiting.
 Async -> async FunctionRunnable : {async, nowait, ['$2']}.
 Async -> async 'NL' FunctionStatements done : {async, nowait, '$3'}.
-Async -> async 'NL' FunctionStatements wait done : {async, wait, '$3'}.
-Async -> async 'NL' FunctionStatements wait foruse done : {async, wait, '$3'}.
+
+AsyncWait -> wait foruse Name : {async_wait, '$3', 400}.
+AsyncWait -> wait foruse Name foruse integer : {async_wait, '$3', unwrap('$5')}.
 
 %%%----------------------------------------------------------------------
 %%% Uniqueness
@@ -162,7 +168,6 @@ Logging -> whisper bad AnyListN  : {whisper, bad, '$3'}.
 %%%----------------------------------------------------------------------
 %%% Setting / Equality
 %%%----------------------------------------------------------------------
-Equality -> Names equals ExternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InternalCall  : {equality, '$1', '$3'}.
 Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
 Equality -> Names equals Pairs         : {equality, '$1', '$3'}.
@@ -175,6 +180,7 @@ Equality -> Names equals InlineFun        : {equality, '$1', '$3'}.
 Equality -> Names equals Numbers          : {equality, '$1', {numbers, '$3'}}.
 Equality -> Names equals Unique           : {equality, '$1', '$3'}.
 Equality -> Names equals Async            : {equality, '$1', '$3'}.
+Equality -> Names equals AsyncWait        : {equality, '$1', '$3'}.
 Equality -> Names equals Over             : {equality, '$1', '$3'}.
 
 Pair -> '(' pair AnyNameN AnyNameN ')' : {pair, '$3', '$4'}.
@@ -186,11 +192,11 @@ Pairs -> Pair Comma Pairs : ['$1'] ++ '$3'.
 ExistingPlusMore -> Name foruse pair Pairs : {append, '$1', '$4'}.
 ExistingPlusMore -> Name foruse Pairs : {append, '$1', '$3'}.
 
-Vars -> use vars_src vars ArgNames : {vars, unwrap('$2'), '$4'}.
-Vars -> use vars_src ArgNames : {vars, unwrap('$2'), '$3'}.
+Vars -> vars_src vars ArgNames : {vars, unwrap('$1'), '$3'}.
+Vars -> vars_src ArgNames : {vars, unwrap('$1'), '$2'}.
 
-GlobalActor -> '(' cxn AnyName ')' : {cxn, '$3'}.
-GlobalActor -> '(' user AnyName ')' : {cxn, '$3'}.
+GlobalActor -> AnyNameN from cxn   : {cxn, '$1'}.
+GlobalActor -> AnyNameN from user  : {user, '$1'}.
 
 %%%----------------------------------------------------------------------
 %%% Inline Funs
@@ -296,13 +302,26 @@ MathTerms -> Number MathTerms : ['$1'] ++ '$2'. % and numbers with other terms
 MathTerms -> MathApplier MathTerms : ['$1'] ++ '$2'.  % and math on math action
 
 %%%----------------------------------------------------------------------
+%%% External Bindings
+%%%----------------------------------------------------------------------
+% import external_name as internal-name for arg1, arg2 from external_module
+ExternalFunctionBinding -> import Name as ExternalFunction :
+    {external_named_import, '$2', '$4'}.
+
+% import external_name for arg1, arg2 from external_module
+ExternalFunctionBinding -> import ExternalFunction :
+    {external_import, '$2'}.
+
+ExternalFunction -> Name ForUse from Name :
+    {import, '$1', lists:flatten('$2'), '$4'}.
+ExternalFunction -> Name from Name :
+    {import, '$1', [], '$3'}.
+
+%%%----------------------------------------------------------------------
 %%% Calls
 %%%----------------------------------------------------------------------
-ExternalCall -> Name from '(' uterm Name ')' : {external_call, '$5', '$1'}.
-ExternalCall -> Name ForUse from '(' uterm Name ')' :
-    {external_call, '$6', '$1', '$2'}.
-
 InternalCall -> Name ForUse : {call, '$1', '$2'}.
+InternalCall -> do Name : {call, '$2', []}.
 
 ForUseArgs -> ForUseArgsArgs : lists:flatten('$1').
 

@@ -13,6 +13,10 @@
  ([] #b("__zog_type"))
  ([type] (tuple (type-key) type)))
 
+(defmacro namespace
+ (['site] `(cxn 'site_id))
+ (['user] `(cxn 'user_id)))
+
 (defsyntax idx-prefix
  ; this gets io-list-to-binary'd in idx-key
  ([type] (list '"zidx:_:" (namespace site) '":_:" type '":_:")))
@@ -89,12 +93,15 @@
    (,name ,initial-arg)))
 
 ;;;------------------------------------------------------------------+
-;;; Create a multi-clause http function (lc to merge all cases to one fun)
+;;; Importing of external functions
 ;;;------------------------------------------------------------------+
-(defmacro safe-external-call
- ([mod func]      `(: ,mod ,func))
- ([mod func args] `(: ,mod ,func ,@args)))
+(defmacro external-binding (local-name mod fun args)
+ `(defun ,local-name ,(append-cxn-arg-to args)
+   (: ,mod ,fun ,@args)))  ; mondo security breach -- LIMIT BY USER/ORG
 
+;;;------------------------------------------------------------------+
+;;; Calling local function wrappers
+;;;------------------------------------------------------------------+
 (defmacro safe-call
  ([func]      `(count-then ,func 100 (,func ,(cxn-arg))))
  ([func args] `(count-then ,func 100 (,func ,@(append-cxn-arg-to args)))))
@@ -155,6 +162,7 @@
  (['template (site . (template-name . bindings))] `(: zog_page ok ,(cxn-arg)
                      (: zog_template rn ,site ,template-name
                       (atom-first ,@bindings))))
+ ; add proper content type for json and plain
  (['json arg]      `(: zog_page ok ,(cxn-arg) (: mochijson2 encode ,arg)))
  (['plain arg]     `(: zog_page ok ,(cxn-arg) ,args))
  ([arg]            `(: zog_page ok ,(cxn-arg) ,arg)))
@@ -183,20 +191,20 @@
 
 (defmacro meta-idx-fields (type)
  `(list
-   (tuple ,(iolist_to_binary (list '"zobj-type-" (namespace site))) ,type)
+   (tuple (iolist_to_binary (list '"zobj-type-" (namespace site))) ,type)
    (tuple #b("zobj-owner") (namespace site))))
 
 (defun create-car-idx
  ; idx needs to store index vals for each key in indexes
  ; AND siteid for this object
  ; AND siteid-type for this object
- ([(idx . idxs) type pairs all-idx]
+ ([(idx . idxs) type pairs all-idx __zog_cxn]
   ; get key from indexes, get value of it from pairs,
   ; make [(tuple siteid-type-index (lowercase value))]
   (create-car-idx idxs type pairs
    ; add zidx-SiteId-ObjType-Idx: Val to all-idx
-   (cons (tuple (idx-key type idx) (val idx pairs)) all-idx)))
- ([() type _ all-idx]
+   (cons (tuple (idx-key type idx) (val idx pairs)) all-idx) __zog_cxn))
+ ([() type _ all-idx __zog_cxn]
   (: car index_bind (++ (meta-idx-fields type) all-idx))))
 
 (defun binary-join-car-delim (bins)
@@ -220,7 +228,8 @@
 (defmacro writer (type pairs indexes)
  ; car:write/2 -> take proplist and indexes, create statebox, store statebox
  `(: car write
-   (cons ,(type-key type) ,pairs) (create-car-idx ,indexes ,type ,pairs '())))
+   (cons ,(type-key type) ,pairs)
+   (create-car-idx ,indexes ,type ,pairs '() __zog_cxn)))
 
 (defmacro finder-all (type pairs)
  `(let* (((tuple keys values) (: lists unzip ,pairs)))
@@ -304,16 +313,15 @@
   ('false default)
   (other (element 2 other))))  ; keyfind returns the found *tuple* not value
 
-; for waiting, we need to get the return value from each zog_sg call, make
-; a list out of all of them, then call zog_sg gather with the list of refs
-; returned from all the zog_sg:required calls.
-(defmacro async-wait (list-of-async-statements)
- (let ((async-refs (lc ((<- stmt list-of-async-statements)) stmt)))
-  `(let* ((ran-refs (list ,@async-refs))
-          (total-async-results (: zog_sg gather ran-refs '()))
-          ((tuple 'complete _ results duration-ms) total-async-results))
-    (lc ((<- ref ran-refs))
-     (safe-extracting-keyfind ref results #b("no return"))))))
+(defmacro get-async-return-values (async-refs timeout)
+ `(let* ((total-async-results (: zog_sg gather ,async-refs '() ,timeout)))
+   (case total-async-results
+    ((tuple 'complete _required-or-all results duration-ms)
+     (lc ((<- ref ,async-refs))
+      (safe-extracting-keyfind ref results #b("no return"))))
+    ((tuple 'timeout _remaining-required _remaining-optional results)
+     (lc ((<- ref ,async-refs))
+      (safe-extracting-keyfind ref results #b("timeout")))))))
 
 
 ;;;------------------------------------------------------------------+
@@ -326,15 +334,14 @@
  `(whisper-logger (#b("BAD") ,@args)))
 
 (defmacro whisper-logger (args)
- `(progn
-   (: whisper say ,(namespace site) 'poopie 'poopin
-    (binary-join-space-delim (list ,@args #b("\n"))))))
+ `(: whisper say (namespace site) 'poopie 'poopin
+   (binary-join-space-delim (list ,@args #b("\n")))))
 ; maybe one day all our functions can accept error arguments for self-reporting:
 ;   (list #b("__zog_err") #b("called too many times"))))
 
-(defun whisper-maxcount (place)
- (whisper-logger (#b("reached recursion limit for")
-  (list_to_binary (atom_to_list place)))))
+(defmacro whisper-maxcount (place)
+ `(whisper-logger (#b("reached recursion limit for")
+   (list_to_binary (atom_to_list ,place)))))
 
 ;;;------------------------------------------------------------------+
 ;;; Uniquers

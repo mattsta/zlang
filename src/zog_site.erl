@@ -9,7 +9,7 @@ compile({file, Filename}) ->
   {ok, Contents} = file:read_file(Filename),
   compile(Contents);
 compile(Module) when is_list(Module) orelse is_binary(Module) ->
-  FixedModule = fixup_syntax(Module),
+  FixedModule = fixup_syntax(iolist_to_binary([Module, "\n"])),
   {ok, Tokens, _} = zlang_lexer:string(FixedModule),
   {ok, ParseTree} = zlang_parser:parse(Tokens),
   ParseTree.
@@ -65,28 +65,18 @@ fixup_matches([], _, Acc) -> unicode:characters_to_list(lists:reverse(Acc)).
 %%%----------------------------------------------------------------------
 %%% evaluate primary forms
 %%%----------------------------------------------------------------------
-mod(Mod, ModName) ->
-  mod(Mod, ModName, "default", "default").
-
-mod({module, Stmts}, ModuleName, ClientNamespace, SiteNamespace) ->
+mod({module, Stmts}, ModuleName) ->
   Mod =[args(["defmodule", ModuleName, args(["export", "all"])]), "\n\n",
-        namespaces([{"client", ClientNamespace},
-                    {"site", SiteNamespace}]),
         site_macros(),
-        inline_stmts(Stmts)].
-%  BMod = iolist_to_binary(Mod),
-%  replace_until_done(BMod, "\\)\s+\\)", "))").
+        inline_stmts(Stmts)],
+  BMod = iolist_to_binary(Mod),
+  replace_until_done(BMod, "\\)\s+\\)", "))").
 
 site_macros() ->
   PathToEbin = filename:dirname(code:where_is_file("zog_site.beam")),
   MacroSource = filename:join([PathToEbin, "..", "priv", "site_macros.lfe"]),
   {ok, MacroBin} = file:read_file(MacroSource),
   MacroBin.
-
-namespaces(InboundNamespaces) ->
-  Namespaces = [args([args([ato(Namespace)]), bin(Value)]) ||
-                {Namespace, Value} <- InboundNamespaces],
-  topcall(["defsyntax", "namespace" | Namespaces]).
 
 inline_stmts(Stmts) ->
   ManagedStmts = lists:foldl(fun combine_functions/2, [], Stmts),
@@ -130,10 +120,29 @@ stmt({managed_local_fun, Name, ArgsBodies}) ->
   ExpandedArgsBodies =
   [args([args(Args), "\n", local_body(Name, Body)]) ||
     {Args, Body} <- lists:reverse(ArgsBodies)],
-  topcall(["local-function", Name, lst(ExpandedArgsBodies)]).
-%stmt({function, {local_fun, Name, Args, Body}}) ->
-%  topcall(["local-function", Name, args(Args), local_body(Body)]).
+  topcall(["local-function", Name, lst(ExpandedArgsBodies)]);
+stmt({binding, Binding}) ->
+  {LocalName, RemoteModule, RemoteFun, RemoteArgs} = resolve_binding(Binding),
+  % use deproper for all because we don't care about string versus named
+  % attributes at the top level
+  topcall(["external-binding",
+    deproper(LocalName),
+    deproper(RemoteModule),
+    deproper(RemoteFun),
+    args([deproper(R) || R <- RemoteArgs])]).
 
+resolve_binding({external_named_import, ExternalName, Importing}) ->
+  {LocalName, ExternalArgs, ExternalMod} = resolve_import(Importing),
+  {LocalName, ExternalMod, ExternalName, ExternalArgs};
+resolve_binding({external_import, Importing}) ->
+  {LocalName, ExternalArgs, ExternalMod} = resolve_import(Importing),
+  {LocalName, ExternalMod, LocalName, ExternalArgs}.
+
+resolve_import({import, FunName, Args, FromModule}) ->
+  % We could do a lookup on permissions here for the active user/namespace.
+  % We could *also* import the entire function here instead of leaving it as
+  % a live reference to external code.
+  {FunName, Args, FromModule}.
 
 http_body([], _Method, _Path) -> [];
 http_body([{vars, PullVarsFrom, Vars}|RestBody], Method, Path) ->
@@ -176,9 +185,10 @@ local_body(FunName, [{equality, _, _} = Equality|RestBody]) ->
 local_body(FunName, [{redo, Args}|RestBody]) ->
   [body({redo, FunName, Args}) | local_body(FunName, RestBody)];
 local_body(FunName, [{async, nowait, Stmts}|RestBody]) ->
-  [async_local_body(FunName, Stmts) | local_body(FunName, RestBody)];
-local_body(FunName, [{async, wait, Stmts}|RestBody]) ->
-  [async_wait_local_body(FunName, Stmts) | local_body(FunName, RestBody)];
+  [expr(["list", async_local_body(FunName, Stmts)]) |
+    local_body(FunName, RestBody)];
+local_body(FunName, [{async_wait, PriorAsync, Timeout}|RestBody]) ->
+  [async_wait_local_body(PriorAsync, Timeout) | local_body(FunName, RestBody)];
 local_body(FunName, [H|T]) ->
   [body(H) | local_body(FunName, T)];
 local_body(FunName, OneStmt) when is_tuple(OneStmt) ->
@@ -189,8 +199,8 @@ async_local_body(FunName, [H|T]) ->
   [expr(["async", lst(local_body(FunName, H))]) |
      async_local_body(FunName, T)].
 
-async_wait_local_body(FunName, Stmts) ->
-  expr(["async-wait", lst(async_local_body(FunName, Stmts))]).
+async_wait_local_body(PriorAsync, Timeout) ->
+  expr(["get-async-return-values", proper(PriorAsync), a2l(Timeout)]).
 
 %%%----------------------------------------------------------------------
 %%% equality = recurisve let

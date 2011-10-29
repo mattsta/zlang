@@ -34,7 +34,10 @@ optional(M, F, A) ->
 
 
 gather(Required, Optional) ->
-  gather(Required, Optional, [], 400).
+  gather(Required, Optional, 400).
+
+gather(Required, Optional, TimeoutMS) ->
+  gather(Required, Optional, [], TimeoutMS).
 
 gather(Required, Optional, SoFar, Total) ->
   StartedMS = to_ms(now()),
