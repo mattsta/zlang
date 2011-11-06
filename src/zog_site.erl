@@ -115,7 +115,7 @@ stmt({managed_http_function, PrimaryRoute, SubProps}) ->
    {Method, RestPath, Body} <- lists:reverse(SubProps)],
   topcall(["create-http-function", PrimaryRoute, lst(ExpandedSubProps)]);
 stmt({function, {local_fun, Name, Body}}) ->
-  topcall(["local-function-noargs", Name, local_body(Name, Body)]);
+  topcall(["local-function-noargs", Name, prgn(local_body(Name, Body))]);
 stmt({managed_local_fun, Name, ArgsBodies}) ->
   ExpandedArgsBodies =
   [args([args(Args), "\n", local_body(Name, Body)]) ||
@@ -467,6 +467,8 @@ lc(Target, From, DoWhat) ->
   args(["lc", lst(args(["<-", Target, From])), DoWhat]).
 
 a2l({var, Var}) when is_list(Var) -> Var;
+a2l({list, Parts}) when is_list(Parts) ->
+  args(["list"] ++ [body(P) || P <- Parts]);
 a2l(X) when is_atom(X) -> atom_to_list(X);
 a2l(X) when is_list(X) andalso is_list(hd(X)) -> X;
 a2l(X) when is_float(X) -> mochinum:digits(X);
@@ -515,6 +517,7 @@ depair(Pairs) when is_list(Pairs) ->
 lst(E) -> ["(", E, ") "].
 
 alst(E) when is_list(E) -> args(["list" | E]).
+prgn(E) when is_list(E) -> args(["progn" | E]).
 
 atolst(A) -> ["'", args(A)].
 

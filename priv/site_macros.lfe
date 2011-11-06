@@ -75,7 +75,7 @@
 ;;; Local (non-HTTP) functions and bindings
 ;;;------------------------------------------------------------------+
 (defmacro local-function-noargs
-  ([name args body] `(defun ,name ,(append-cxn-arg-to args) ,body))
+;  ([name args body] `(defun ,name ,(append-cxn-arg-to args) ,body))
   ([name body] `(defun ,name ,(append-cxn-arg-to '()) ,body)))
 
 (defmacro local-function (name args-bodies)
