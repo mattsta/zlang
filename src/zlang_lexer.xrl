@@ -12,7 +12,7 @@ NL       = (\n|\n\s+)
 C        = (<|<=|=|=>|>)
 START_MATH  = \([\-\+\*\/\%]
 %ATOM      = ([^"\s+,\(\)])  % this is still too liberal.  captures \n, etc
-ATOM      = ([A-Za-z0-9_\[\]-])
+ATOM      = ([A-Za-z0-9_-])
 DOUBLE_QUOTED = "(\\\^.|\\.|[^\"])*"
 
 
@@ -179,6 +179,8 @@ as     : {token,{as,TokenLine}}.
 ->     : {token,{'->', TokenLine}}.
 \\\n   : skip_token.  % don't report lines ending in slash (continue next line)
 {NL}   : {token,{'NL', TokenLine}}.
+\[     : {token,{'[', TokenLine}}.
+\]     : {token,{']', TokenLine}}.
 \'     : {token,{quot, TokenLine}}. %' -- fix syntax highlighting again
 
 % skippable

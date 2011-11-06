@@ -236,6 +236,9 @@ math_body([], Acc) -> args(lists:reverse(Acc)).
 %%%----------------------------------------------------------------------
 %%% body statements
 %%%----------------------------------------------------------------------
+body({list, Parts}) ->
+  args(["list"] ++ [body(P) || P <- Parts]);
+
 body({over, Var, LocalVar, Stmt}) ->
   lc(proper(LocalVar), proper(Var), body(Stmt));
 

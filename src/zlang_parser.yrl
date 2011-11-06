@@ -29,10 +29,11 @@ StoreDelim Storage TemporalUnit Term
 GlobalActor AnyName AnyArg
 AnyArgN AnyListN AnyNameN AnySubMatcher
 Async AsyncWait Over
+List AnyNamePair AnyNamePairs
 .
 
 
-Terminals '(' ')' ',' '->' '/' 'NL' ':' '*' ';'
+Terminals '(' ')' ',' '->' '/' 'NL' ':' '*' ';' '[' ']'
 http_method
 slash using
 vars
@@ -182,6 +183,7 @@ Equality -> Names EqualityMiddle Unique     : {equality, '$1', '$3'}.
 Equality -> Names EqualityMiddle Async      : {equality, '$1', '$3'}.
 Equality -> Names EqualityMiddle AsyncWait  : {equality, '$1', '$3'}.
 Equality -> Names EqualityMiddle Over       : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle List       : {equality, '$1', '$3'}.
 
 EqualityMiddle -> equals : ok.
 EqualityMiddle -> ':' : ok.
@@ -343,6 +345,7 @@ ForUse -> foruse 'NL' ArgNames : ['$3'].
 ArgName -> Name : '$1'.
 ArgName -> Str  : '$1'.
 ArgName -> Number : '$1'.
+ArgName -> List : '$1'.
 ArgName -> Name as Name : {alias, '$1', '$3'}.
 ArgName -> Name default AnyName : {default, '$1', '$3'}.
 ArgName -> Name as Name default Name : {alias, '$1', '$3', default, '$5'}.
@@ -356,6 +359,8 @@ ArgNamesArgs -> ArgName Comma ArgNamesArgs : ['$1'] ++ '$3'.
 ArgNamesArgs -> ArgName Comma ArgNamesArgs InlineApplier :
     ['$1'] ++ ['$3', {applier_full, '$4'}].
 
+List -> '[' AnyNamePairs ']' : {list, '$2'}.
+
 Names -> Name : ['$1'].
 Names -> Name Comma Names : ['$1'] ++ '$3'.
 
@@ -367,6 +372,12 @@ NameStr -> ustr  : {str, unwrap('$1')}.
 
 AnyName -> Name   : '$1'.
 AnyName -> Str    : '$1'.
+
+AnyNamePair -> AnyName : '$1'.
+AnyNamePair -> Pair : '$1'.
+
+AnyNamePairs -> AnyNamePair : ['$1'].
+AnyNamePairs -> AnyNamePair Comma AnyNamePairs : ['$1'] ++ '$3'.
 
 AnyList -> AnyArg               : ['$1'].
 AnyList -> AnyArg Comma AnyList : ['$1'] ++ '$3'.
