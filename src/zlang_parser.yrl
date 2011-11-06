@@ -14,7 +14,7 @@ InternalCall ArgName ArgNames ArgNamesArgs
 Names Name NameStr
 SpacedNames
 ForUse ForUseArgs ForUseArgsArgs
-Equality Delivery
+Equality Delivery EqualityMiddle
 Comma Redo
 MathApplier MathTerms
 NLEater Number Numbers
@@ -168,20 +168,23 @@ Logging -> whisper bad AnyListN  : {whisper, bad, '$3'}.
 %%%----------------------------------------------------------------------
 %%% Setting / Equality
 %%%----------------------------------------------------------------------
-Equality -> Names equals InternalCall  : {equality, '$1', '$3'}.
-Equality -> Names equals InlineApplier : {equality, '$1', '$3'}.
-Equality -> Names equals Pairs         : {equality, '$1', '$3'}.
-Equality -> Names equals GlobalActor   : {equality, '$1', '$3'}.
-Equality -> Names equals ExistingPlusMore : {equality, '$1', '$3'}.
-Equality -> Names equals Get              : {equality, '$1', '$3'}.
-Equality -> Names equals Find             : {equality, '$1', '$3'}.
-Equality -> Names equals AnyList          : {equality, '$1', delist('$3')}.
-Equality -> Names equals InlineFun        : {equality, '$1', '$3'}.
-Equality -> Names equals Numbers          : {equality, '$1', {numbers, '$3'}}.
-Equality -> Names equals Unique           : {equality, '$1', '$3'}.
-Equality -> Names equals Async            : {equality, '$1', '$3'}.
-Equality -> Names equals AsyncWait        : {equality, '$1', '$3'}.
-Equality -> Names equals Over             : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle InternalCall     : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle InlineApplier    : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Pairs            : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle GlobalActor      : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle ExistingPlusMore : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Get        : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Find       : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle AnyList    : {equality, '$1', delist('$3')}.
+Equality -> Names EqualityMiddle InlineFun  : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Numbers    : {equality, '$1', {numbers, '$3'}}.
+Equality -> Names EqualityMiddle Unique     : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Async      : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle AsyncWait  : {equality, '$1', '$3'}.
+Equality -> Names EqualityMiddle Over       : {equality, '$1', '$3'}.
+
+EqualityMiddle -> equals : ok.
+EqualityMiddle -> ':' : ok.
 
 Pair -> '(' pair AnyNameN AnyNameN ')' : {pair, '$3', '$4'}.
 Pair -> '(' AnyNameN AnyNameN ')'      : {pair, '$2', '$3'}.
