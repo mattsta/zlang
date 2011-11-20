@@ -293,12 +293,6 @@ body({output, "plain", [Arg]}) ->
 body({output, Type, Args}) ->
   expr(["output", Type, args(lists:concat(Args))]);
 
-body({external_call, {var, Module}, {var, Function}}) ->
-  expr(["safe-external-call", Module, Function]);
-
-body({external_call, {var, Module}, {var, Function}, Args}) ->
-  expr(["safe-external-call", Module, Function, arglist(lists:concat(Args))]);
-
 body({call, {var, Function}}) ->
   expr(["safe-call", Function]);
 
