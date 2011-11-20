@@ -20,7 +20,7 @@ MathApplier MathTerms
 NLEater Number Numbers
 Pair Pairs ExistingPlusMore
 Str AnyList
-Logging
+Lock Logging
 Find Write Get WriteIndex
 Update UpdateAction UpdateActions
 Unique ExternalFunctionBinding
@@ -49,7 +49,7 @@ add remove clear delete update
 index quot done match redo
 unique big small async wait over
 good bad import
-do
+do docustr lock unlock
 atom var integer string set union intersect comparator uterm.
 
 %%%----------------------------------------------------------------------
@@ -122,7 +122,7 @@ FunctionStatement -> FunctionRunnable 'NL' : '$1'.
 
 FunctionRunnable -> Delivery           : '$1'.
 FunctionRunnable -> InlineApplier      : '$1'.
-FunctionRunnable -> AnyNameN           : '$1'.
+FunctionRunnable -> Lock               : '$1'.
 FunctionRunnable -> Find               : '$1'.
 FunctionRunnable -> Write              : '$1'.
 FunctionRunnable -> Get                : '$1'.
@@ -135,6 +135,7 @@ FunctionRunnable -> Logging            : '$1'.
 FunctionRunnable -> Unique             : '$1'.
 FunctionRunnable -> Async              : '$1'.
 FunctionRunnable -> Over               : '$1'.
+FunctionRunnable -> AnyNameN           : '$1'.
 
 %%%----------------------------------------------------------------------
 %%% Inline comprehensions
@@ -276,6 +277,12 @@ Update -> update '(' Find ')' UpdateActions  : {update, {find, '$3'}, '$5'}.
 Update -> update Name UpdateActions          : {update, {obj, '$2'}, '$3'}.
 
 %%%----------------------------------------------------------------------
+%%% Unique guarantees
+%%%----------------------------------------------------------------------
+Lock -> lock AnyNamePair NLEater FunctionStatements unlock :
+    {lock, '$2', {body, '$4'}}.
+
+%%%----------------------------------------------------------------------
 %%% Appliers
 %%%----------------------------------------------------------------------
 InlineApplier -> '(' ApplierType ')'       : '$2'.
@@ -367,14 +374,14 @@ Names -> Name Comma Names : ['$1'] ++ '$3'.
 Name -> uterm : {var, unwrap('$1')}.
 Str -> ustr   : {str, unwrap('$1')}.
 
-NameStr -> uterm : {str, unwrap('$1')}.
+NameStr -> Name  : {str, unwrap('$1')}.
 NameStr -> ustr  : {str, unwrap('$1')}.
 
-AnyName -> Name   : '$1'.
-AnyName -> Str    : '$1'.
+AnyName -> Name : '$1'.
+AnyName -> Str  : '$1'.
 
 AnyNamePair -> AnyName : '$1'.
-AnyNamePair -> Pair : '$1'.
+AnyNamePair -> Pair    : '$1'.
 
 AnyNamePairs -> AnyNamePair : ['$1'].
 AnyNamePairs -> AnyNamePair Comma AnyNamePairs : ['$1'] ++ '$3'.

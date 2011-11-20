@@ -38,6 +38,10 @@ run         : {token,{do,TokenLine}}.
 % unique things
 unique      : {token,{unique,TokenLine}}.
 
+% locking things
+lock        : {token,{lock,TokenLine}}.
+unlock      : {token,{unlock,TokenLine}}.
+
 % sizes
 big         : {token,{big,TokenLine}}.
 long        : {token,{big,TokenLine}}.

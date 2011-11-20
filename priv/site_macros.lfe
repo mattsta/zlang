@@ -357,3 +357,10 @@
           (term_to_binary (tuple (node) (now)))))
    (binhex first-half)))
 
+;;;------------------------------------------------------------------+
+;;; Locking
+;;;------------------------------------------------------------------+
+(defmacro lock (key body)
+ `(let (((tuple 'locked lock-id) (: egsf lock ,key)))
+   ,@body
+   (: egsf unlock ,key lock-id)))

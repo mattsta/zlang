@@ -236,6 +236,10 @@ math_body([], Acc) -> args(lists:reverse(Acc)).
 %%%----------------------------------------------------------------------
 %%% body statements
 %%%----------------------------------------------------------------------
+body({lock, LockKey, {body, Body}}) ->
+  args(["lock", proper(LockKey), lst([body(B) || B <- Body])]);
+
+
 body({list, Parts}) ->
   args(["list"] ++ [body(P) || P <- Parts]);
 
