@@ -2,7 +2,7 @@ Nonterminals
 Module
 Statements Statement
 Vars InlineApplier ApplierType InlineFun InlineFunHead InlineFuns InlineFunStmt
-InlineRunnables SingleInlineStmt
+SingleInlineStmt
 Function
 FunctionBody
 FunctionStatements FunctionStatement FunctionRunnable
@@ -218,14 +218,10 @@ InlineFunHead -> match AnyList NLEater : {'$2', lineno('$1')}.
 InlineFuns -> InlineFunStmt            : ['$1'].
 InlineFuns -> InlineFunStmt InlineFuns : ['$1'] ++ '$2'.
 
-InlineFunStmt -> ForUseArgs '->' NLEater InlineRunnables NLEater :
+InlineFunStmt -> ForUseArgs '->' NLEater FunctionStatements NLEater :
     {stmt, {args, '$1'}, {body, '$4'}}.
-InlineFunStmt -> ForUseArgs '->' InlineRunnables NLEater :
+InlineFunStmt -> ForUseArgs '->' FunctionStatements NLEater :
     {stmt, {args, '$1'}, {body, '$3'}}.
-
-InlineRunnables -> FunctionRunnable 'NL' : ['$1'].
-InlineRunnables -> FunctionRunnable 'NL' InlineRunnables : ['$1'] ++ '$3'.
-
 
 SingleInlineStmt -> ForUseArgs '->' FunctionRunnable :
     [{stmt, {args, '$1'}, {body, ['$3']}}].
