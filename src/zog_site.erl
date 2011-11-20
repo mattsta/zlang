@@ -239,6 +239,8 @@ math_body([], Acc) -> args(lists:reverse(Acc)).
 body({lock, LockKey, {body, Body}}) ->
   args(["lock", proper(LockKey), lst([body(B) || B <- Body])]);
 
+body({docustr, _Documentation}) ->
+  [];  % don't print documentation to LFE.  If we need it, act on it here.
 
 body({list, Parts}) ->
   args(["list"] ++ [body(P) || P <- Parts]);

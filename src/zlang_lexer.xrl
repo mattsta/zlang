@@ -145,6 +145,13 @@ cxn      : {token,{cxn,TokenLine}}.
 user     : {token,{user,TokenLine}}.
 usr      : {token,{user,TokenLine}}.
 
+% docustrings
+
+% Doesn't work as expected?
+""{DOUBLE_QUOTED}"" : DocStr = lists:sublist(TokenChars, 3, TokenLen - 4),
+                      S = build_string(DocStr, length(DocStr)),
+                      {token,{docustr,TokenLine,S}}.
+
 % post types
 json     : {token,{json,TokenLine,list_to_atom(TokenChars)}}.
 term     : {token,{term,TokenLine,list_to_atom(TokenChars)}}.

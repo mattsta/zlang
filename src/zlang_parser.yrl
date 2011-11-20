@@ -1,5 +1,5 @@
 Nonterminals
-Module
+Module DocuStr
 Statements Statement
 Vars InlineApplier ApplierType InlineFun InlineFunHead InlineFuns InlineFunStmt
 SingleInlineStmt
@@ -120,6 +120,7 @@ HttpRunnable -> Vars : '$1'.
 
 FunctionStatement -> FunctionRunnable 'NL' : '$1'.
 
+%FunctionRunnable -> DocuStr            : '$1'.
 FunctionRunnable -> Delivery           : '$1'.
 FunctionRunnable -> InlineApplier      : '$1'.
 FunctionRunnable -> Lock               : '$1'.
@@ -136,6 +137,11 @@ FunctionRunnable -> Unique             : '$1'.
 FunctionRunnable -> Async              : '$1'.
 FunctionRunnable -> Over               : '$1'.
 FunctionRunnable -> AnyNameN           : '$1'.
+
+%%%----------------------------------------------------------------------
+%%% Inline documentations
+%%%----------------------------------------------------------------------
+DocuStr -> docustr : {docustr, unwrap('$1')}.
 
 %%%----------------------------------------------------------------------
 %%% Inline comprehensions
