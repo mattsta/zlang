@@ -40,7 +40,6 @@ unique      : {token,{unique,TokenLine}}.
 
 % locking things
 lock        : {token,{lock,TokenLine}}.
-unlock      : {token,{unlock,TokenLine}}.
 
 % sizes
 big         : {token,{big,TokenLine}}.
@@ -52,7 +51,6 @@ short       : {token,{small,TokenLine}}.
 whisper     : {token,{whisper,TokenLine}}.
 say         : {token,{whisper,TokenLine}}.
 good         : {token,{good,TokenLine}}.
-pass         : {token,{good,TokenLine}}.
 bueno        : {token,{good,TokenLine}}.
 bad          : {token,{bad,TokenLine}}.
 fail         : {token,{bad,TokenLine}}.
@@ -77,6 +75,8 @@ redo         : {token,{redo,TokenLine}}.
 done        : {token,{done,TokenLine}}.
 end         : {token,{done,TokenLine}}.
 fin         : {token,{done,TokenLine}}.
+unlock      : {token,{done,TokenLine}}.
+unmatch     : {token,{done,TokenLine}}.
 
 % types of things to deal with
 form      : {token,{vars_src,TokenLine,form}}.

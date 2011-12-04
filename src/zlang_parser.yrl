@@ -262,6 +262,8 @@ WriteIndex -> intersect find foruse AnyList : '$4'.
 
 Write -> write AnyName Pairs WriteIndex :
     {write, {type, '$2'}, {contents, '$3'}, {index, '$4'}}.
+Write -> write AnyName foruse Pairs WriteIndex :
+    {write, {type, '$2'}, {contents, '$4'}, {index, '$5'}}.
 
 %%%----------------------------------------------------------------------
 %%% Updating
@@ -281,7 +283,7 @@ Update -> update Name UpdateActions          : {update, {obj, '$2'}, '$3'}.
 %%%----------------------------------------------------------------------
 %%% Unique guarantees
 %%%----------------------------------------------------------------------
-Lock -> lock AnyNamePair NLEater FunctionStatements unlock :
+Lock -> lock AnyNamePair NLEater FunctionStatements done :
     {lock, '$2', {body, '$4'}}.
 
 %%%----------------------------------------------------------------------
@@ -431,7 +433,7 @@ Term -> uterm              : unwrap('$1').
 %%%----------------------------------------------------------------------
 %%% Meta-specific built-ins (template delivery, XHR, comet, pubsub, ...)
 %%%----------------------------------------------------------------------
-Delivery -> output Name : {output, "plain", ['$2']}.
+Delivery -> output Name : {output, plain, ['$2']}.
 Delivery -> output output_type ForUse : {output, unwrap('$2'), '$3'}.
 
 %%%----------------------------------------------------------------------

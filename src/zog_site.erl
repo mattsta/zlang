@@ -237,7 +237,7 @@ math_body([], Acc) -> args(lists:reverse(Acc)).
 %%% body statements
 %%%----------------------------------------------------------------------
 body({lock, LockKey, {body, Body}}) ->
-  args(["lock", proper(LockKey), lst([body(B) || B <- Body])]);
+  args(["lock", proper(LockKey), local_body(nil, Body)]);
 
 body({docustr, _Documentation}) ->
   [];  % don't print documentation to LFE.  If we need it, act on it here.
@@ -288,7 +288,7 @@ body({append, From, Pairs}) ->
 body({math, Op, OnWhat}) ->
   expr(["math", Op, math_body(OnWhat, [])]);
 
-body({output, "plain", [Arg]}) ->
+body({output, plain, [Arg]}) ->
   expr(["output", proper(Arg)]);
 body({output, Type, Args}) ->
   expr(["output", Type, args(lists:concat(Args))]);
@@ -478,6 +478,7 @@ a2l(X) when is_list(X) -> X.
 
 a2b(X) -> list_to_binary(a2l(X)).
 
+proper({pair, A, B}) -> tup({proper(A), proper(B)});
 proper({var, Var}) when is_list(Var) -> Var;
 proper({str, Str}) when is_list(Str) -> bin(Str);
 proper(Number) when is_number(Number) -> bin(Number);

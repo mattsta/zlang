@@ -14,8 +14,8 @@
  ([type] (tuple (type-key) type)))
 
 (defmacro namespace
- (['site] `(cxn 'site_id))
- (['user] `(cxn 'user_id)))
+ (['site] `(cxn 'site_id))  ; convert to get site name, then get site id from site name
+ (['user] `(cxn 'user_id)))  ; potentially okay.  reinvestigate.
 
 (defsyntax idx-prefix
  ; this gets io-list-to-binary'd in idx-key
@@ -360,7 +360,10 @@
 ;;;------------------------------------------------------------------+
 ;;; Locking
 ;;;------------------------------------------------------------------+
+(defmacro namespaced-lock (key)
+ `(tuple (namespace site) ,key))
+
 (defmacro lock (key body)
- `(let (((tuple 'locked lock-id) (: egsf lock ,key)))
-   ,@body
-   (: egsf unlock ,key lock-id)))
+ `(let (((tuple 'locked lock-id) (: egsf lock (namespaced-lock ,key))))
+   ,body
+   (: egsf unlock (namespaced-lock ,key) lock-id)))
