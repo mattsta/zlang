@@ -28,6 +28,18 @@
 ; ([type idx-name] (iolist_to_binary (list (idx-prefix type) idx-name))))
 
 ;;;------------------------------------------------------------------+
+;;; global process dict of currently in-scope variables
+;;;------------------------------------------------------------------+
+(eval-when-compile
+ (defun gad () 'global-active-dict)
+ (defun add-in-scope-var-to-dict (var val)
+  (put (gad) (: dict append var val (get (gad)))))
+ (defun new-gad ()
+  (put (gad) (: dict new)))
+ (defun test-gad (element)
+  (: dict is_key element (get (gad))))
+)
+;;;------------------------------------------------------------------+
 ;;; local binding of http vars (form and cookie)
 ;;;------------------------------------------------------------------+
 ; vars-type: form or cookie
@@ -39,6 +51,9 @@
 ;  too.  just needs a dumb compile time atom to list, concatenate, list to atom.
 (defmacro with-http-vars
   (['form method vars-local vars-web vars-lc body-after-vars]
+   (lc ((<- var vars-local))
+;    (: io format '"Adding http var: ~p~n" (list var))
+    (add-in-scope-var-to-dict var 'undef))
    (let* ((lookup-fun (cond ((== 'GET method) 'form_queryvars)
                             ((== 'POST method) 'form_postvars))))
     `(let* ((form-vars-vals
@@ -59,6 +74,7 @@
 ;;;------------------------------------------------------------------+
 (defmacro create-http-function (base-path method-subpath-bodies)
 ;;; (let* ((outer-lc (lc ((<- (list abc none) '((def bob) (hij meme)))) abc)))
+ (new-gad)
  `(defun ,base-path
    ,@(lc ((<- (list method sub-path body) method-subpath-bodies))
       `([,method ,sub-path ,(cxn-arg)] ,body))))
@@ -76,21 +92,59 @@
 ;;;------------------------------------------------------------------+
 (defmacro local-function-noargs
 ;  ([name args body] `(defun ,name ,(append-cxn-arg-to args) ,body))
-  ([name body] `(defun ,name ,(append-cxn-arg-to '()) ,body)))
+ ([name body]
+  (new-gad)
+  `(defun ,name ,(append-cxn-arg-to '()) ,body)))
 
 (defmacro local-function (name args-bodies)
+ (new-gad)
  `(defun ,name
    ,@(lc ((<- (list args body) args-bodies))
       `(,(append-cxn-arg-to args) ,body))))
 
 (defmacro local-bind
  ([local-name value bound-body]
+;  (: io format '"Adding to dict: ~p~n" (list local-name))
+  (add-in-scope-var-to-dict local-name value)
  `(let ((,local-name ,value))
    ,@bound-body)))
 
 (defmacro local-matcher (name initial-arg body)
- `(fletrec ((,name ,@body))
-   (,name ,initial-arg)))
+ ; what the holy crap is this?
+ ; well, to have matching matches, we must do an EQUALITY, not just a compare
+ ; against variables ONLY if the match target already exists.  So, we have to
+ ; track variables in scope.  If a variable is in scope (is_key), then we use
+ ; direct =:= -- else, we use the normal bind-match-compare thing.  Meh.
+ (let ((fixed-body
+        (: lists map
+         (match-lambda
+          ; inner-arg looks like: [list,<<"def">>] (can have multiple params
+          ; too, but for now we are ignoring those.  Those get the default
+          ; pass through.
+          ; inner-body is the... body.
+          ((((list inner-arg) . inner-body))
+           (let ((first-arg (car (cdr inner-arg))))
+;            (: io format '"abject failure TO: ((~p)) ((~p))~n"
+;             (list inner-arg inner-body))
+            (case (is_atom first-arg)
+             ('true (case (test-gad first-arg)
+                     ('true `((=:= ,inner-arg __local_flet_arg__) ,@inner-body))
+                     ('false (case first-arg
+                              ; if the arg is just '_ => always match.
+                              ; this causes a 'previous clause already matches'
+                              ; message becase LFE injects a catchall clause
+                              ; by default which this catches all before the
+                              ; default catchall catches all.
+                              ('_ `((?= __local-catchall-arg __local_flet_arg__)
+                                    ,@inner-body))
+                              (_ `((?= ,inner-arg __local_flet_arg__)
+                                   ,@inner-body))))))
+             ('false `((?= ,inner-arg __local_flet_arg__) ,@inner-body))))))
+         body)))
+;  (: io format '"Fixed body is: ~p~n" (list fixed-body))
+  `(fletrec ((,name (__local_flet_arg__)
+             (cond ,@fixed-body)))
+    (,name ,initial-arg))))
 
 ;;;------------------------------------------------------------------+
 ;;; Importing of external functions
