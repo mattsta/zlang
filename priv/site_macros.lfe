@@ -218,7 +218,7 @@
   ; This is: iolist_to_binary([H, [<<":_:", B/binary>> || B <- T]]).
   (iolist_to_binary
    (list bin
-    (lc ((<- b bins) (=/= b '())) (binary (delim binary) (b binary)))))))
+    (lc ((<- b bins) (=/= b '())) (binary (delim binary) ((iolist_to_binary b) binary)))))))
 
 (defun de-hash-finds (objs)
  ; covert {Hash, Obj} to Hash as a member of the orddict Obj.
