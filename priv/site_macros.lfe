@@ -14,7 +14,7 @@
  ([type] (tuple (type-key) type)))
 
 (defmacro namespace
- (['site] `(cxn 'get_header_value '"host"))  ; convert to get site name, then get site id from site name
+ (['site] `(iolist_to_binary (cxn 'get_header_value '"host")))  ; convert to get site name, then get site id from site name
  (['user] `(cxn 'user_id)))  ; potentially okay.  reinvestigate.
 
 (defsyntax idx-prefix
