@@ -349,7 +349,7 @@
    (keys-from-dict extract-keys (car dict-or-dicts))
     (getter extract-keys (cdr dict-or-dicts))))
  ([extract-keys dict] (when (is_tuple (car dict)))
-  (keys-from-dict extract-keys dict)))
+  (list (keys-from-dict extract-keys dict))))
 
 (defun keys-from-dict
  ([key dict] (when (is_binary key)) (dict-find key dict))
