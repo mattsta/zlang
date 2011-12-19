@@ -478,6 +478,7 @@ a2l(X) when is_list(X) -> X.
 
 a2b(X) -> list_to_binary(a2l(X)).
 
+proper(empty_list)   -> lst([]);
 proper({pair, A, B}) -> tup({proper(A), proper(B)});
 proper({var, Var}) when is_list(Var) -> Var;
 proper({str, Str}) when is_list(Str) -> bin(Str);

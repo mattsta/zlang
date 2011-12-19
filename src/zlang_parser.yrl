@@ -404,14 +404,18 @@ Comma -> ',' 'NL' : nil.
 %   match target with first, second, third : rest -- rest will be bound to
 % (third .rest) and NOT (first, second, third) : rest.  That's what ASM allows.
 %  So now we: match target with (first, second, third) : rest -> redo rest
-AnySubMatcher -> '(' AnyListN ')'  : '$2'.
+AnySubMatcher -> '[' ']'  : empty_list.
+AnySubMatcher -> '[' AnyListN ']'  : '$2'.
+
 AnyNameN -> Name   : '$1'.
 AnyNameN -> Str    : '$1'.
 AnyNameN -> Number : '$1'.
+
 AnyArgN -> AnyNameN             : '$1'.
 AnyArgN -> AnySubMatcher             : '$1'.
 AnyArgN -> AnyNameN ':' AnyNameN : {first_rest, '$1', '$3'}.
 AnyArgN -> AnySubMatcher ':' AnyNameN : {first_rest, {submatched, '$1'}, '$3'}.
+
 AnyListN -> AnyArgN               : ['$1'].
 AnyListN -> AnyArgN Comma AnyListN : ['$1'] ++ '$3'.
 
