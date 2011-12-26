@@ -36,8 +36,19 @@
   (put (gad) (: dict append var val (get (gad)))))
  (defun new-gad ()
   (put (gad) (: dict new)))
- (defun test-gad (element)
-  (: dict is_key element (get (gad))))
+ (defun test-gad
+  ([()] 'false)
+  ([x] (when (is_list (car x))) (test-gad (car x)))
+  ([x] (when (andalso (is_list (cdr x)) (is_list x)))
+   (: lists foldl (match-lambda
+                   (('list acc) acc)
+                   ((element acc)
+                    (andalso acc (: dict is_key element (get (gad))))))
+                   'true
+                  x))
+  ([x] (when (is_atom x)) (: dict is_key x (get (gad))))
+  ([x]  'false))
+
 )
 ;;;------------------------------------------------------------------+
 ;;; local binding of http vars (form and cookie)
@@ -122,24 +133,23 @@
           ; too, but for now we are ignoring those.  Those get the default
           ; pass through.
           ; inner-body is the... body.
-          ((((list inner-arg) . inner-body))
-           (let ((first-arg (car (cdr inner-arg))))
-;            (: io format '"abject failure TO: ((~p)) ((~p))~n"
-;             (list inner-arg inner-body))
-            (case (is_atom first-arg)
-             ('true (case (test-gad first-arg)
-                     ('true `((=:= ,inner-arg __local_flet_arg__) ,@inner-body))
-                     ('false (case first-arg
-                              ; if the arg is just '_ => always match.
-                              ; this causes a 'previous clause already matches'
-                              ; message becase LFE injects a catchall clause
-                              ; by default which this catches all before the
-                              ; default catchall catches all.
-                              ('_ `((?= __local-catchall-arg __local_flet_arg__)
-                                    ,@inner-body))
-                              (_ `((?= ,inner-arg __local_flet_arg__)
-                                   ,@inner-body))))))
-             ('false `((?= ,inner-arg __local_flet_arg__) ,@inner-body))))))
+          ((((('list . args)) . inner-body))
+;           (: io format '"abject failure TO: ((~p)) ((~p))~n"
+ ;           (list args inner-body))
+           (case (test-gad args)
+            ('true (when (is_list (car args)))
+             `((=:= ,(car (car args))
+                     (car (car __local_flet_arg__))) ,@inner-body))
+            ('true `((=:= (list ,@args) __local_flet_arg__) ,@inner-body))
+            ('false
+             (case args
+              ; if the arg is just '_ => always match.
+              ; this causes a 'previous clause already matches'
+              ; message becase LFE injects a catchall clause
+              ; by default which this catches all before the
+              ; default catchall catches all.
+              (('_) `((?= __local-catchall-arg __local_flet_arg__) ,@inner-body))
+              (_ `((?= (list ,@args) __local_flet_arg__) ,@inner-body)))))))
          body)))
 ;  (: io format '"Fixed body is: ~p~n" (list fixed-body))
   `(fletrec ((,name (__local_flet_arg__)
