@@ -1,0 +1,77 @@
+import write_template as write-template for site, name, fields from zog_template
+import source for site, template-name, tab-name from zog_template
+import source for site, template-name from zog_template
+import refresh_cache as refresh-cache from zog_template
+import render_markdown as render-markdown for text from zog_template
+import render_ehtml as render-ehtml for text from zog_template
+import add_to_route_db as add-to-route-db for site, domain, name from zog_template_editor
+
+
+POST /register ->
+    form vars username, password
+    lock ('signup username)
+        found-user is find all 'user with ('username username) using 'username
+        user-found is get 'username from found-user
+        goodout is '"NONE"
+        badout is '"ALREADY EXISTS"
+        say bad "Username is:", username
+        say good '"Found user is", user-found
+        match user-found
+            [] -> send badout
+            [username] : xs -> send badout
+                   _ -> write 'user ('username username), ('pass password) index by 'username
+                        send goodout
+        end
+    unlock
+    
+POST /save-page ->
+    form vars cardName, cardType, cardContents (convert by removing \\r)
+    write 'card ('name cardName), ('type cardType), ('contents cardContents) index by 'name
+
+GET /page/:page-name: ->
+    found-page is find all 'card with ('name page-name)
+    card-type, card-contents is get 'type, 'contents in found-page
+    render-contents for card-type using card-contents
+    
+render-contents for 'markdown, card-contents ->
+    contents is render-markdown using card-contents
+    send contents
+    
+render-contents for 'ehtml, card-contents ->
+    contents is render-ehtml using card-contents
+    send contents
+
+POST /editor ->
+    form vars mhtml, html, markdown, site, name, type, js,
+        coffee, css, scss, zlang, domain (convert by removing \\r)
+    cookie var userNonce
+    write-template for site, name using (for vars remove site, name then pair names, values)
+    add-to-route-db for site, domain, name
+    do refresh-cache
+    send-editor-page for site, name
+
+POST /editor/:page-name: ->
+    form var content, site, name, domain (convert by removing \\r)
+    write-template for site, name using [(page-name content)]
+    do refresh-cache
+    send-editor-page for site, name
+    
+GET /editor ->
+    form vars site default "web", name default "front_page" as template-name
+    send-editor-page for site, template-name
+
+GET /editor/tab-content/:tab-name: ->
+    form vars site, name as template-name
+    tab-contents is get-tab-contents for site using template-name, tab-name
+    send tab-contents
+
+get-tab-contents for site, template-name, tab-name ->
+    source for site, template-name, tab-name
+
+send-editor-page for site, name ->
+    fields are source for site, name
+    base is path from cxn
+    source-fields is fields with (pair 'script_root "http://zog.dev/"), (pair 'base base)
+    send template for site, name with source-fields
+
+

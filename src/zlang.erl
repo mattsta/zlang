@@ -1,4 +1,4 @@
--module(zog_site).
+-module(zlang).
 
 -compile(export_all).
 
@@ -73,7 +73,7 @@ mod({module, Stmts}, ModuleName) ->
   replace_until_done(BMod, "\\)\s+\\)", "))").
 
 site_macros() ->
-  PathToEbin = filename:dirname(code:where_is_file("zog_site.beam")),
+  PathToEbin = filename:dirname(code:where_is_file("zlang.beam")),
   MacroSource = filename:join([PathToEbin, "..", "priv", "site_macros.lfe"]),
   {ok, MacroBin} = file:read_file(MacroSource),
   MacroBin.

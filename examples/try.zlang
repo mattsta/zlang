@@ -1,0 +1,28 @@
+; POST to /editor, get vars, write template, refresh cache, deliver new page
+POST /editor/smoochie/poop ->
+    use form vars mhtml, html, markdown, site, name, type,
+        js, coffee, css, scss (convert by removing \\r)
+    use form vars abc, def
+    use cookie var userNonce
+    write_template for site, name using
+        (for vars remove site, name then pair names, values)
+        from (meta zog_template)
+;   (zog_template) write_template site, name,
+;       (for vars remove site, name then pair names with values)
+   refresh_cache from (meta zog_template)
+   ; (zog_template) refresh_cache
+   deliver-editor-page for site, name
+
+GET /editor ->
+    use form vars mack, jones
+    deliver-editor-page for "mack", "jones"
+
+; deliver page for site, name; compose fields from (site, name) source,
+; render template and return on Cxn
+deliver-editor-page for site, name ->
+    ; IF FIELDS is only used *ONCE* we can in-line it for lazy evaluation
+    fields are source for site, name from (meta zog_template)
+;    seven is (+ 4 3 2 (- 1 5 22 9.3) (/ 3 1 11 64 3) (* 7 9 3 2 1))
+    deliver template for site, name with fields
+
+

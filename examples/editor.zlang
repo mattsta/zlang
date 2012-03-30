@@ -1,0 +1,271 @@
+
+
+
+
+
+
+import write_template as write-template for site, name, fields from zog_template
+import source for site, template-name, tab-name from zog_template
+import source for site, template-name from zog_template
+import refresh_cache as refresh-cache from zog_template
+import render_markdown as render-markdown for text from zog_template
+import render_ehtml as render-ehtml for text from zog_template
+import sublist for src-list, start, =end from lists
+
+POST /editor/smoochie/poop ->
+    form vars mhtml, html, markdown, site, name, type, js,
+        coffee, css, scss (convert by removing \\r)
+    cookie userNonce
+    # write some stuff
+    write-template for site, name using
+        (for vars remove site, name  \
+        then pair names, values)
+   do refresh-cache
+   send-editor-page for site, name
+
+GET /editor ->
+    form vars site default 'web, name default 'front_page as template-name
+    send-editor-page for site, template-name
+
+GET /editor/tab-content/:tab-name: ->
+    form vars site, name as template-name
+    tab-contents is source for site using template-name, tab-name
+    send tab-contents
+
+send-editor-page for site, name ->
+    fields are source for site, name
+    base is path from cxn
+    source-fields is fields with (pair 'script_root "http://\"zog\"\t\tzog/"),
+      (pair 'base base)
+    send template for site, name with source-fields
+
+test-non-binding-matcher ->
+    match 'abc for 'def -> 'failure; 'jacko -> 'stillfailure end
+
+test-binding-matcher ->
+    match 'abc for 'abc -> 'SUCCESS end
+
+moar-datas ->
+    sublist using ['a, 'b, 'c], 1, 2
+    find all 'rambo with ('name 'matt)
+    rambo: (+ 1 2)
+    write 'user ('name 'matt), ('age rambo) and index by 'poo
+    write rambo ('name 'matt), ('age rambo) and index by rambo
+    jake is find all rambo with ('name 'matt), ('location 'bob)
+    toolbar: get 'name in jake
+    category: 'baby, 'boom
+    poopin3: ['abc, 'def, category, jake]
+    result is match category for 'admin, 'poop ->
+                                  'bob
+                                  inner-poo is (+ 4 5)
+
+                             'poo, 'nope -> 'crap
+
+                             for other, _ -> 'none
+                       end
+    match category
+      'admin -> 'admin2
+      'poo2 -> 'poo3
+                redo with category
+      other -> redo with 'admin, 'jack
+    end
+    find all rambo with ('name 'matt), ('location 'bob) using 'location
+    find all rambo with ('name 'matt), ('location 'bob) using 'location, 'bob
+#    find one 'user with ('name 'matt), ('location '"de fuego")
+    poopie, doopie is get 'abc, 'def in rambo
+    get 'abc, 'def in ('abc 'poo), ('def 'roo)
+    update rambo set ('abc 'def), set ('name 'POOPIE), add ('friend 'ralph)
+#    update (find one 'user with ('size '64)) set ('abc 'def), set ('name 'POOPIE), add ('friend ralph)
+
+
+category-from-toolbar for 'admin ->
+    bob is 'bob
+
+category-from-toolbar for 'poo ->
+    'crap
+
+category-from-toolbar for other ->
+    'none
+
+lock-try ->
+    lock 'poo
+      say good '"locked!"
+    unlock
+    say good '"unlocked!"
+
+run_tests ->
+    onetime-first is unique small
+    onetime-second is unique big
+    say '"small is", onetime-first
+    say '"big is", onetime-second
+    bob is  category-from-toolbar for 'admin
+    crap is category-from-toolbar for 'poo
+    none is category-from-toolbar for 'somethingelse
+    match bob
+        'bob -> whisper 'ok, 'bob
+           _ -> say 'fail, 'bob
+    end
+    match crap
+        'crap -> whisper 'ok, 'crap
+            _ -> say 'fail, 'crap
+    end
+    match none
+        'none -> whisper 'ok, 'none
+            _ -> say 'fail, 'none
+    end
+    twelve is 12
+    match twelve
+        12 -> say 'ok, '12
+         o -> say 'fail, '12, o
+    end
+    write 'user ('name onetime-first), ('age twelve) index by 'name
+    write 'user ('name onetime-first), ('age 42) index by 'name
+    write 'user ('name onetime-first), ('age 31) index by 'name
+    not-found-users is find all 'user with ('name 'bobcrap) using 'name
+    not-found-user is get 'name in not-found-users
+    say '"not found:", not-found-user
+    match not-found-user
+        'bobcrap -> say bad '"Reached BAD first rest"
+            else -> say good '"GOOD NOT FOUND", else
+    end
+    found-users is find all 'user with ('name onetime-first) using 'name
+    get 'name, 'age in found-users
+    async-waiting is async
+        match found-users
+         found : rest -> update found set ('name onetime-second)
+                         redo with rest
+        end
+        temp-poopie is 'poo
+    end
+    async-results is wait for async-waiting for 300
+    over async-results a say '"async result of", a
+    match-result, temp-result is async-results
+    say bad '"match result (expected BAD)", match-result
+    say good '"poopie result", temp-result
+    seven is 7
+    found-users is find all 'user with ('name onetime-second) using 'name
+    updated-users is get 'name, 'age in found-users
+    match updated-users
+        [onetime-second, age] : rest -> say '"updated age is:", age
+                                        redo rest
+    end
+    write 'bob with ('username 'bob) index by 'username
+    found-bobs is find all 'bob with ('username 'bob) using 'username
+    found-bob is get 'username in found-bobs
+    match found-bob
+        [any] : rest -> say good '"found bob is:", any
+    end
+    found-nots is find all 'bob with ('username 'poo) using 'username
+    found-not-bob is get 'username in found-nots
+    match found-not-bob
+        [any] : rest -> say bad '"FOUND BOB:", any
+                   _ -> say good '"NO FOUND NOT BOB"
+    end
+    four00 is 400
+    match four00
+        any -> redo any
+    end
+    zero-fib is fib using 0
+    match zero-fib
+          1 -> say good '"fib zero okay"
+      other -> say bad '"fib zero bad:", other
+    end
+    one-fib is fib using 1
+    match one-fib
+          1 -> say good '"fib one okay"
+      other -> say bad '"fib one bad:", other
+    end
+    two-fib is fib using 2
+    match two-fib
+          2 -> say good '"fib two okay"
+       =bad -> say bad '"fib two bad:", =bad
+    end
+    do lock-try
+    lock 'poo
+      say good '"locked!"
+    unlock
+    say good '"unlocked!"
+    inline-match is '"HELLO"
+    inline-match-no is '"HELLO-NO"
+    match inline-match
+        inline-match-no -> say bad '"MATCHED MATCH"
+           inline-match -> say good '"(GOOD) FAILED TO MATCH MATCH"
+    end
+    write 'poo ('username 'poo) index by 'username
+    tryuser = find all 'poo with ('username 'poo) using 'username
+    gotuser = get 'username from tryuser
+    match gotuser
+      ['poo] : xs -> say good '"MATCHED MATCH2"
+         _ -> say bad '"FAILED TO MATCH MATCH"
+    end
+    dead-fib is fib using 10
+
+POST /register ->
+    form vars username, password
+    lock ('signup username)
+        found-user is find all 'user with ('username username) using 'username
+        user-found is get 'username from found-user
+        goodout is '"NONE"
+        badout is '"ALREADY EXISTS"
+        say bad "Username is:", username
+        say good '"Found user is", user-found
+        match user-found
+            username -> send badout
+                   _ -> send goodout
+        end
+    unlock
+
+POST /login ->
+    form vars username, password
+    found-user is find all 'user with ('username username) using 'username
+    user-found is get 'username from found-user
+    pass-found is get 'pass from found-user    
+    goodout is '"LOGIN WORKED!"
+    badout is '"USERNAME NOT FOUND!"
+    badoutbad is '"PASSWORD NO MATCH!"
+    badoutbadstrange is '"STRANGE PASSWORD NO MATCH!"
+    say bad '"pass", password
+    say bad "pass found is:", pass-found
+    match user-found
+                           [] -> send badout
+        [username] : xs -> 'ok
+                            _ -> send badoutbadstrange
+    end
+    match pass-found
+        [password] : xs -> send goodout
+                 _ -> send badoutbad
+    end
+
+fib for 0 -> 1
+
+fib for 1 -> 1
+
+fib for a ->
+    first is fib for (- a 1)
+    second is fib for (- a 2)
+    (+ first second)
+
+POST /save-page ->
+    form vars cardName, cardType, cardContents (convert by removing \\r)
+    write 'card ('name cardName), ('type cardType), ('contents cardContents) index by 'name
+
+# VERIFY:
+# yeah:can store using multiple index fields (sort by key)
+# ~verify what send does (add content type ability?)
+# ~auto-remove \\r from all html fields
+# ~allow sub-statements in [ ]
+# yeah:verify 'write' returns the SHA-1 of the inserted object
+# ~Allow lookup directly by SHA-1
+
+GET /page/:page-name: ->
+    found-page is find all 'card with ('name page-name)
+    card-type, card-contents is get 'type, 'contents in found-page
+    render-contents for card-type using card-contents
+    
+render-contents for 'markdown, card-contents ->
+    contents = render-markdown using card-contents
+    send contents
+
+render-contents for 'ehtml, card-contents ->
+    contents is render-ehtml using card-contents
+    send contents

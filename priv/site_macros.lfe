@@ -194,7 +194,7 @@
 ;;; Math (potentially pre-computable if no vars...)
 ;;;------------------------------------------------------------------+
 (defmacro math (op vals)
- `(: zog_site a2b (do-math ,op ,(lc ((<- v vals)) `(: zog_site num_safe ,v)))))
+ `(: zlang a2b (do-math ,op ,(lc ((<- v vals)) `(: zlang num_safe ,v)))))
 
 (defmacro do-math
  (['% vals] `(rem ,@vals))

@@ -1,7 +1,0 @@
-{application, zog_site,
- [
-  {description, "zog_site- make sites in zog for zog with zog"},
-  {vsn, "0.3"},
-  {modules, []},
-  {env, []}
- ]}.
